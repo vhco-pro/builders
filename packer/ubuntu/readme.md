@@ -1,106 +1,68 @@
-# Ubuntu Cloud Image (WIP)
+# Ubuntu template
 
-# ☁️ Cloud-Init Configuration
+Builds a generic Ubuntu golden image from the official cloud image. One template, two builders,
+selected at invocation with `-only`:
 
-Our Cloud-Init configuration automates the initial setup of an Ubuntu instance, including **hostname configuration, system locale, timezone, and software installation**.
+- `proxmox-clone.ubuntu` -> a native Proxmox template, clone-ready, with an empty cloud-init drive.
+- `qemu.ubuntu` -> a portable local qcow2 for bare metal or any other hypervisor.
 
-## 📦 Software Installation
-These packages are automatically installed on first boot:
+Both share the same provisioning. The image ships **generic**: no baked hostname, IP, or SSH keys, and
+`machine-id` plus cloud-init state are reset so every clone boots fresh. Per-VM identity is injected at
+clone time via cloud-init (for example by Terraform `bpg/proxmox`).
 
-- `qemu-guest-agent` – Improves VM integration  
-- `git` – Version control  
-- `net-tools` – Networking tools
-- `nfs-common` – NFS support
-- `curl` – HTTP request tool  
-- `file` – File type detection  
-- `build-essential` – Compiler tools  
-- `zsh` – Alternative shell  
-- `neofetch` – System info display  
-- `bpytop` – System monitoring  
+## Build
 
-## 🛠️ Configuration Overview
-### Hostname Setup
-- **Cloud-Init defines variables** (`ROLE`, `ENV`, `COUNTER`) in `/etc/profile.d/hostname_vars.sh`.  
-- The **post-Cloud-Init script** reads these variables and configures the **hostname dynamically** using:  
-  ```bash
-  "${ROLE}-${ARCH}-${ENV}-${COUNTER}"
-  ```
+```bash
+cd packer/ubuntu
+packer init .
 
-### 🚧 User & SSH Authentication
- **TODO: Improve SSH Key Handling**
+# Native Proxmox template
+packer build -only='proxmox-clone.ubuntu' .
 
-- Currently, Cloud-Init **enables password authentication** (`ssh_pwauth: true`).  
-- **Password: `ubuntu`** is set but later removed by the script.  
-- **Better approach:** Set up SSH keys **immediately** in Cloud-Init.  
-
-### **System Localization**
-- **Locale:** `nl_BE.UTF-8`  
-- **Keyboard Layout:** `be` (Belgian)  
-- **Timezone:** `Europe/Brussels`
-
-## 🚀 Future Improvements
-- [ ] **Replace password auth with SSH key authentication** in Cloud-Init.  This can break packer so carefully implement
-- [ ] **Enable Fail2Ban** security rules in Cloud-Init.  
-- [ ] **Refactor hostname governance** logic to ensure proper dynamic assignment.
-
-# 📜 Script Architecture
-
-**TODO: Move all the functionality to PDS and just import here, script should be select and apply**
-
-The script automates post-cloud-init configuration for a Linux instance, ensuring proper system setup, user creation, shell customization, and security hardening.
-
-## 🔧 Configuration Overview
-### 1️⃣ System Configuration
-- **User Management**  
-  - Creates an admin user (`sysadmin`).  
-  - Sets up SSH key-based authentication.  
-  - Enables passwordless sudo for the admin.  
-  - ⚠️ *Cloud-Init user provisioning can break SSH access—investigate or handle via script.*  
-
-- **Hostname Setup**  
-  - Generates hostname dynamically based on system variables.  
-  - Applies the new hostname to `/etc/hosts`.  
-
-- **SSHD Configuration**  
-  - Disables root login.  
-  - Enables only key-based authentication.  
-  - Password authentication is disabled by default.  
-
-- **Zsh Configuration**  
-  - Installs and sets up **Zi** (Zsh package manager).  
-  - Configures **Powerlevel10k**, **autosuggestions**, and **syntax highlighting**.  
-  - Applies system-wide Zsh configuration to `/etc/zshrc`.  
-
-- **Custom MOTD (Message of the Day)**  
-  - Configures **Neofetch** as the system MOTD.  
-  - Backs up existing MOTD scripts.  
-
-## 🛡️ Security Hardening
-- **Disables password authentication and root login**  
-- **Configures Fail2Ban (TBD)**
-- **Enables Uncomplicated Firewall (UFW) (TBD)**
-- **Automated Updates via Cron**  
-  - Ensures a **nightly update at midnight**.  
-  - Uses `grep` to prevent duplicate cron entries.  
-
-## 📦 Tooling & Extras
-### **🐳 Kubernetes CLI (kubectl)**
-- Installs `kubectl` and additional utilities (`stern`, `kubectl-view-secret`).  
-- Adds **alias `k=kubectl`** and enables shell completion.  
-
-## 🔗 References
-- **[Packer Documentation](https://www.packer.io/docs)** - Official Packer
-- **[Cloud-Init Documentation](https://cloudinit.readthedocs.io/en/latest/)** - Official Cloud-Init
-- **[Ubuntu Cloud Images](https://cloud-images.ubuntu.com/)** - Official Ubuntu Cloud Images
-- **[Original Template Repository](https://github.com/nbarnum/packer-ubuntu-cloud-image/tree/main)** - Shout out to the original author for the base template, @nbarnum, I used it as a starting point for this project.
-
-## Debugging
-
-Set the environment variable `PACKER_LOG=1` to provide additional debug logging
-
-forward vnc
-
-```shell
-ssh -N -L 5905:127.0.0.1:5905 sysadmin@x86
+# Portable local qcow2 (lands in output-<version>-<arch>/)
+packer build -only='qemu.ubuntu' .
 ```
 
+### Proxmox output (`proxmox-clone`)
+
+`proxmox-clone` clones an existing base cloud-init template, so create that once per Ubuntu release:
+
+```bash
+# on the Proxmox host (needs qm, wget, libguestfs-tools)
+STORAGE=local-lvm BRIDGE=vmbr0 ./scripts/create-base-template.sh
+```
+
+Then set your homelab values and build:
+
+```bash
+cp proxmox.auto.pkrvars.hcl.example proxmox.auto.pkrvars.hcl   # git-ignored, edit it
+export PKR_VAR_proxmox_api_token='xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
+packer build -only='proxmox-clone.ubuntu' .
+```
+
+The build ends by flagging the VM as a template (verify with `qm config <vmid>` showing `template: 1`).
+
+**Auth:** create an API token in the Proxmox UI (Datacenter -> Permissions -> API Tokens), e.g. user
+`packer@pve`, token id `packer`, which gives `proxmox_api_token_id = "packer@pve!packer"`. Supply the
+secret via `PKR_VAR_proxmox_api_token` or an untracked `*.auto.pkrvars.hcl`. **Never commit the token.**
+
+### Local qcow2 output (`qemu`)
+
+The `qemu` builder is the fast local check. On Apple Silicon, build the arm64 variant so QEMU uses HVF
+(amd64 falls back to slow TCG emulation):
+
+```bash
+packer build -only='qemu.ubuntu' -var 'arch=arm64' -var 'qemu_accelerator=hvf' .
+```
+
+## Variables
+
+Defaults live in [`variables.pkr.hcl`](variables.pkr.hcl). Non-secret build values are in
+[`variables.pkrvars.hcl`](variables.pkrvars.hcl); Proxmox connection + token go in an untracked
+`proxmox.auto.pkrvars.hcl` (see the `.example`).
+
+## Scope
+
+This image is intentionally generic and minimal. Tooling (zsh + Powerlevel10k, kubectl, SSH hardening,
+MOTD) is provisioned via the [PDS](https://github.com/michielvha/PDS) package and is tracked separately
+in issue #3, so it is not installed here yet.

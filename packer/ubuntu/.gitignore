@@ -1,2 +1,9 @@
 # built images
 *.img
+*.qcow2
+*.raw
+output-*/
+
+# real secrets / per-host values (keep the .example)
+*.auto.pkrvars.hcl
+!*.auto.pkrvars.hcl.example

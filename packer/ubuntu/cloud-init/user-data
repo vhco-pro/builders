@@ -1,44 +1,27 @@
 #cloud-config
+# Build-time seed for the qemu builder only (gives Packer a known ubuntu/ubuntu
+# login). Throwaway: no identity is baked in, and cleanup.sh resets it.
 password: ubuntu
 ssh_pwauth: true
 chpasswd:
   expire: false
 
-write_files:
-- path: /etc/profile.d/hostname_vars.sh
-  content: |
-    export ROLE="main"
-    export ENV="prd"
-    export COUNTER=01
-
-# # Set the locale and keyboard layout
+# Locale / keyboard / timezone defaults (overridable at clone time).
 locale: nl_BE.UTF-8
 keyboard:
   layout: be
-
-# # Timezone setup
 timezone: Europe/Brussels
 
-# # Preserve hostname
+# Let cloud-init manage the hostname (generic; real hostname set at clone time).
 preserve_hostname: false
 
-# # Update and upgrade packages on first boot
+# Update packages on first boot.
 package_update: true
 package_upgrade: true
 
-# # Install packages
+# Minimal generic packages. qemu-guest-agent is required so Proxmox can see the
+# VM's IP. Extra tooling (zsh, kubectl, ...) comes from the PDS package in issue #3.
 packages:
   - qemu-guest-agent
-  - git
-  - net-tools
-  - nmap
-  - nfs-common
   - curl
   - file
-  - build-essential
-  - zsh
-  - neofetch
-  - btop
-  - gh
-  - grub-efi-amd64
-  - shim-signed

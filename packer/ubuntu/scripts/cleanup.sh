@@ -1,63 +1,42 @@
-﻿#!/bin/bash -eux
+#!/bin/bash -eux
+# Seal the image: strip build-time identity and reset first-boot state so every
+# clone comes up fresh and unique (spec 0001 / issue #1). Runs last.
 
-# -- Shell Config --
-
-# Redirect stderr to stdout for the entire script, this will get rid of most of the red in my terminal because in Packer,
-# the output from the script section (provisioners) is shown in red because it's directed to stderr, which Packer highlights in red.
+# Redirect stderr to stdout so Packer doesn't paint the whole run red.
 exec 2>&1
 
-
-# --  Environment Variables  --
-
-# set var to log path
 LOG="/var/log/cleanup.log"
-# set to default ubuntu user
 USER_NAME="ubuntu"
 
-# -- Main Script Section --
-
-echo "==> remove SSH keys used for building"
+echo "==> Remove SSH keys used for the build"
 rm -f /home/ubuntu/.ssh/authorized_keys
 rm -f /root/.ssh/authorized_keys
 
-echo "==> Clear out machine id"
+echo "==> Remove persisted SSH host keys (regenerated on first boot)"
+rm -f /etc/ssh/ssh_host_*
+
+echo "==> Reset cloud-init so clones re-run first-boot config"
+cloud-init clean --logs || true
+rm -f /etc/netplan/50-cloud-init.yaml
+
+echo "==> Reset machine-id so clones don't collide"
 truncate -s 0 /etc/machine-id
+rm -f /var/lib/dbus/machine-id
+ln -s /etc/machine-id /var/lib/dbus/machine-id
 
-echo "==> Remove the contents of /tmp and /var/tmp"
+echo "==> Clean tmp, logs, apt caches and history"
 rm -rf /tmp/* /var/tmp/*
-
-echo "==> Truncate any logs that have built up during the install"
 find /var/log -type f -exec truncate --size=0 {} \;
-
-echo "==> Cleanup bash history"
-rm -f ~/.bash_history
-
-echo "remove /usr/share/doc/"
+rm -f /root/.bash_history /home/ubuntu/.bash_history /root/.wget-hsts
 rm -rf /usr/share/doc/*
-
-echo "==> remove /var/cache"
-find /var/cache -type f -exec rm -rf {} \;
-
-echo "==> Cleanup apt"
+find /var/cache -type f -exec rm -f {} \;
 apt-get -y autoremove
-sudo apt-get clean
-sudo rm -rf /var/lib/apt/lists/*
-
-echo "==> force a new random seed to be generated"
+apt-get clean
+rm -rf /var/lib/apt/lists/*
 rm -f /var/lib/systemd/random-seed
 
-echo "==> Clear the history so our install isn't there"
-rm -f /root/.wget-hsts
-
-# reconfigure password of default ubuntu install user
-# Set the user password from Packer variable called on line 58 of the template
-echo "Setting password for $USER_NAME..."
-echo "${USER_NAME}:${USER_PASSWORD}" | sudo chpasswd
-
-# Log that password has been set, but do not log the password itself
-echo "Password for $USER_NAME set." >> $LOG
-
-# Remove cloud init network configuration from netplan
-sudo rm -rf /etc/netplan/50-cloud-init.yaml
+# Reset the default user's password (the build used a known one for SSH access).
+echo "${USER_NAME}:${USER_PASSWORD}" | chpasswd
+echo "Cleanup complete." >> "$LOG"
 
 export HISTSIZE=0
