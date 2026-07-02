@@ -23,15 +23,28 @@ Mapping the current `install.sh` calls to where they already exist in PDS:
 
 | `install.sh` calls | Lives in PDS at | Nature |
 | --- | --- | --- |
-| `install_zi`, `configure_zsh` | `bash/module/` (zsh) | generic tooling → **migrate** |
+| `install_zi`, `configure_zsh` | `bash/module/` (zsh) | zsh **config only** → **migrate** (see note) |
 | `set_sudo_nopasswd`, `update_system_cron_entry` | `bash/module/sysadmin.sh` | generic → **migrate** |
 | `restricted_ssh_security_profile` | `bash/common/admin/sysadmin.sh` | hardening → **migrate (with care)** |
-| `install_kubectl` | `bash/debian/software/install_kubectl.sh` | tooling → **migrate** |
+| `install_kubectl` | `bash/debian/software/install_kubectl.sh` | third-party repo tooling → **migrate** |
+| `gh` (GitHub CLI) | *(not in PDS yet)* | third-party apt repo → **contribute to PDS** |
 | custom MOTD / neofetch block | *(inline only — not in PDS yet)* | generic → **contribute to PDS** |
 | `configure_admin`, hostname, SSH keys, netplan | *(inline)* | **identity → cloud-init (0001), not PDS** |
 
 So most of `install.sh` is either already in PDS or belongs in cloud-init. What's left for builders is a
 thin **select-and-apply** list.
+
+**apt vs PDS boundary (decided in 0001).** Anything in Ubuntu's default apt repos is installed directly
+via the cloud-init `packages:` list (native apt integration), *not* through PDS. PDS is only for what apt
+can't do cleanly: third-party repos (`gh`, `kubectl`), multi-arch/non-default binaries, and config/setup
+logic. Concretely:
+
+- **zsh:** the `zsh` *package* is installed by cloud-init (apt). PDS's `install_zi` / `configure_zsh` do
+  only the **configuration** (zi, Powerlevel10k, plugins, `/etc/zshrc`), not the apt install. Ensure the
+  PDS functions don't re-`apt install zsh` (or make it a no-op when present).
+- **gh / kubectl:** these need third-party apt repos, so they are PDS's job, not the cloud-init list.
+- **MOTD:** contribute as `setup_motd`; PDS may pick a maintained tool (e.g. fastfetch) since `neofetch`
+  is deprecated upstream.
 
 ## Goals
 
