@@ -16,3 +16,4 @@ This is the deliberate replacement for the old copy-paste workflow.
 | # | Spec | Status |
 | --- | --- | --- |
 | 0001 | [Packer: Proxmox-native builder with selectable output formats](0001-packer-proxmox-native-output.md) | draft |
+| 0002 | [Automated testing harness for image builds](0002-image-build-testing.md) | draft |
