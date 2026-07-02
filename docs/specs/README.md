@@ -17,3 +17,4 @@ This is the deliberate replacement for the old copy-paste workflow.
 | --- | --- | --- |
 | 0001 | [Packer: Proxmox-native builder with selectable output formats](0001-packer-proxmox-native-output.md) | draft |
 | 0002 | [Automated testing harness for image builds](0002-image-build-testing.md) | draft |
+| 0003 | [Move provisioning into PDS ("select and apply")](0003-pds-provisioning-migration.md) | draft |
