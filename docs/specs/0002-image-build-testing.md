@@ -10,25 +10,44 @@
 
 ## Context
 
-Spec 0001 gives us one template with two builders (`proxmox-iso` for a native Proxmox template,
-`qemu` for a local qcow2/raw) sharing the same provisioners. Before we expand to more operating
-systems we need an automated way to prove a build is correct — otherwise every agent change is a
-manual "build it and eyeball it" cycle, which doesn't scale and isn't reproducible.
+Spec 0001 gives us one template with two builders (`proxmox-clone` for a native Proxmox template,
+`qemu` for a local qcow2/raw) that share the **same cloud-image base** and the **same provisioners**.
+Before we expand to more operating systems we need an automated way to prove a build is correct —
+otherwise every agent change is a manual "build it and eyeball it" cycle, which doesn't scale and isn't
+reproducible.
 
 The central constraint is **where a test can physically run**:
 
-- The `proxmox-iso` builder talks to a **live Proxmox API**. PVE is x86 + KVM; it can't be hosted on
-  an Apple Silicon Mac. So anything exercising the Proxmox path needs line-of-sight to the real
-  homelab PVE (a self-hosted runner) or a manual run.
+- The `proxmox-clone` builder talks to a **live Proxmox API** (and clones a base template that lives on
+  it). PVE is x86 + KVM; it can't be hosted on an Apple Silicon Mac. So anything exercising the Proxmox
+  path needs line-of-sight to the real homelab PVE (a self-hosted runner) or a manual run.
 - The `qemu` builder runs locally, but QEMU only hardware-accelerates a guest whose arch matches the
   host. On an arm64 Mac, arm64 guests use **HVF** (fast); **amd64** guests fall back to **TCG**
   software emulation (works, but slow). Our current target is amd64, so amd64 builds are slow on the
   Mac and fast on an amd64 KVM CI runner.
 - **Static checks and offline artifact inspection** need neither KVM nor PVE and run everywhere.
 
-Because both builders share provisioners, validating *image contents* via the cheap `qemu` path
-covers most correctness; only Proxmox-specific behaviour (template flag, cloud-init drive attach)
-genuinely needs the homelab.
+Both builders start from the **same** upstream Ubuntu cloud image and run the **same** provisioners
+(see 0001), so the cheap `qemu` path is a faithful check of what the Proxmox template will contain. The
+local/CI qemu loop catches the overwhelming majority of regressions instantly; only the
+Proxmox-specific behaviour (clone succeeds, template flag set, empty cloud-init drive attached) needs
+the homelab.
+
+## Primer — where CI actually runs (new to this)
+
+A GitHub Actions **runner** is just the machine that executes a CI job. Two kinds:
+
+- **GitHub-hosted:** lives in GitHub's cloud. Great for anything self-contained, but it **cannot reach
+  your homelab Proxmox** — that's on your LAN, behind your router. It has no line-of-sight and no
+  business holding your Proxmox credentials.
+- **Self-hosted:** a small agent *you* install on a machine **inside** your homelab (e.g. a VM on the
+  Proxmox). It dials out to GitHub, picks up jobs, and runs them locally — so it *can* reach Proxmox.
+
+**Do we need a self-hosted runner? Not to start.** The thing you actually want — "the agent checks its
+own work without waiting on CI" — is served entirely by the cheap **local** checks (Layer 0, plus an
+optional fast arm64 build for Layer 2). A self-hosted runner is only needed later to *automate* the
+Proxmox-path verification; until then that step is a manual run when you're on the homelab. It's an
+explicit **phase 2**, not a prerequisite.
 
 ## Goals
 
@@ -77,17 +96,22 @@ Notes:
   it), so it runs fast on the Mac. Use `libguestfs` (`guestfish`/`virt-cat`); on macOS run it via a
   container image to avoid the finicky native install, or loopback-mount the raw image.
 
-### Recommended CI topology
+### Recommended topology (three tiers)
 
-- **PR gate (GitHub-hosted, every PR):** Layer 0 + Layer 1 (amd64 `qemu` build, KVM) + Layer 2
-  offline assertions + Layer 3 boot test if KVM present. No homelab, no secrets, deterministic.
-  This fully validates the *shared provisioner content* both builders use.
-- **Proxmox verification (self-hosted homelab runner, on merge to `main` or manual dispatch):**
-  Layer 1 `proxmox-iso` build against the real PVE → assert the output is flagged
-  `template: 1` (`qm config <vmid>`) with a cloud-init drive attached. Uses a **dedicated test
-  storage pool and vmid range**; API token supplied via runner env, never committed.
-- Keep the homelab-dependent job **off the per-PR path** — it needs the physical host and shouldn't
-  block fast iteration.
+- **Local agent self-check (your Mac, no wait, no CI):** Layer 0 always (instant), plus an optional
+  fast **arm64** `qemu` build + Layer 2 offline assertions when deeper confidence is wanted. This is the
+  loop an agent runs to check its own work before pushing. **amd64 builds are not run locally** — arm64
+  is close enough for provisioner-logic feedback, and full amd64 goes to the pipeline (decided).
+- **PR gate (GitHub-hosted, every PR):** Layer 0 + Layer 1 (**amd64** `qemu` build, KVM) + Layer 2
+  offline assertions + Layer 3 boot test if KVM present. No homelab, no secrets, deterministic. This is
+  where amd64 gets exercised for real.
+- **Proxmox verification (phase 2 — self-hosted runner = a VM on the homelab Proxmox host, on merge to
+  `main` or manual dispatch; until then run manually on the homelab):** Layer 1 `proxmox-clone` build
+  against the real PVE → assert the output is flagged `template: 1` (`qm config <vmid>`) with an empty
+  cloud-init drive attached, and that the clone+provision succeeded. Uses a **dedicated vmid range +
+  `test-*` names** (optionally a `packer-test` pool) on the existing Proxmox host; API token supplied
+  via runner/shell env, never committed. Kept **off the per-PR path** — it needs the physical host and
+  must not block fast iteration.
 
 ### Multi-OS extensibility
 
@@ -97,44 +121,63 @@ exist, and the generic-image invariants to assert. The harness runs the *same* L
 against any template + manifest. Adding an OS = new `packer/<os>/` + its manifest; the test matrix is
 `{os} × {output-format}`.
 
-### Tooling (candidates, decide in review)
+### Tooling (decided)
 
 - **Layer 0:** `packer fmt`/`validate` (built in), `shellcheck`, `cloud-init schema`, `yamllint`.
-- **Layer 2:** `libguestfs` (`guestfish`, `virt-cat`, `virt-inspector`).
-- **Layer 3 assertions:** **Goss/dgoss** (lightweight YAML, leaning this way) vs InSpec vs
-  Testinfra (pytest). Goss fits the "per-template manifest" model cleanly.
-- **Runner/entrypoint:** a `Makefile` or `Taskfile` target (`make test LAYER=0-2`, `make test-proxmox`)
-  that CI invokes verbatim, so local and CI run identical commands.
+- **Layer 2:** `libguestfs` (`guestfish`, `virt-cat`, `virt-inspector`); on macOS run it via a container.
+- **Layer 3 assertions: Goss / dgoss** — lightweight YAML, no runtime deps on the target, and it fits
+  the "per-template manifest" model cleanly. (InSpec/Testinfra considered and dropped as heavier.)
+- **Runner/entrypoint: `Makefile`** — preinstalled everywhere (Mac + Linux + CI), zero-dependency so an
+  agent can always run it. Targets like `make check` (Layer 0), `make test-local` (0 + arm64 1 + 2),
+  `make test-proxmox`. CI invokes the same targets verbatim, so local and CI run identical commands.
 
 ## Acceptance criteria
 
-- [ ] `make test` (or task equivalent) runs Layers 0 + 2 with **no KVM and no PVE**, and passes on a
-      clean checkout on both Apple Silicon and a GitHub-hosted runner.
-- [ ] Layer 1 `qemu` build + Layer 3 boot test run in GitHub-hosted CI (KVM-gated) on every PR.
+- [ ] `make check` runs Layer 0 (fmt/validate/shellcheck/cloud-init schema) with **no KVM and no PVE**
+      and passes on both Apple Silicon and a GitHub-hosted runner — the agent's instant self-check.
+- [ ] `make test-local` runs an **arm64** `qemu` build + Layer 2 offline assertions on Apple Silicon,
+      no PVE, giving the agent deeper confidence without waiting on CI.
+- [ ] Layer 1 (**amd64** `qemu` build) + Layer 3 boot test run in GitHub-hosted CI (KVM-gated) on every PR.
 - [ ] Layer 2 machine-asserts every spec-0001 generic-image invariant (empty machine-id, no
       authorized_keys, no static netplan identity, no persisted SSH host keys) and fails the build if
       any is violated.
 - [ ] Layer 3 proves cloud-init applies clone-time identity and that machine-id is freshly generated
       and differs between two independent boots of the same artifact.
-- [ ] The `proxmox-iso` path is verified on a self-hosted homelab runner (template flag + cloud-init
-      drive) on merge/dispatch, using a dedicated test pool/vmid range and env-supplied secrets.
+- [ ] The `proxmox-clone` path is verified against the homelab PVE (clone+provision succeeds, output
+      flagged `template: 1`, empty cloud-init drive attached), using a reserved vmid range + `test-*`
+      names and env-supplied secrets — run manually at first, automated on a self-hosted runner (a VM on
+      the Proxmox host) in phase 2.
 - [ ] Documented "how to run tests locally on macOS" including the arm64-fast / amd64-slow caveat and
       the container-based `libguestfs` path.
 - [ ] Adding a hypothetical second OS requires only a new template dir + test manifest — no harness
       changes (validated by dry-running the harness against a stub manifest).
 
+## Decisions (resolved)
+
+- **Test target:** the **existing** homelab Proxmox host (no separate node). Isolate test builds with a
+  reserved **vmid range** (e.g. 9000–9099) + `test-*` template names, optionally grouped in a
+  `packer-test` **pool** for easy bulk cleanup. (A "pool" is just a label for grouping — it doesn't
+  reserve compute; a separate "node" would be a whole extra host, which we don't need.)
+- **Self-hosted runner:** **not required to start.** The agent's no-wait loop is local (Layer 0 + arm64
+  Layer 1/2). A self-hosted runner is **phase 2**, only to automate the Proxmox verification; until
+  then that step is a manual run on the homelab. When we do it, it's a **VM on the homelab Proxmox
+  host** (decided).
+- **Layer 3 framework:** **Goss / dgoss.**
+- **amd64-on-Mac:** don't build amd64 locally — arm64 is close enough for provisioner-logic feedback;
+  amd64 build/boot runs in the pipeline.
+- **Runner entrypoint:** **Makefile.**
+- **NoCloud seed for Layer 3 (explained):** to boot-test the image we must feed it a cloud-init the same
+  way production will — via a small **NoCloud** seed disk (a mini virtual drive holding `user-data` +
+  `meta-data`). **Decided: the test seed mirrors the shape `bpg/proxmox` injects at clone time** (same
+  fields: hostname, SSH keys, network, edgectl user-data). That way a green boot test means the *real*
+  clone-time path works, not just some artificial one.
+
 ## Open questions
 
-- **Do we have (or want) a dedicated test PVE node/pool**, or do we run Proxmox verification against
-  the prod homelab PVE with an isolated vmid range + `test-*` template names?
-- **Self-hosted runner placement:** on the PVE host itself, on a separate homelab box, or an
-  ephemeral VM? Security posture for the API token on that runner.
-- **Layer 3 framework:** Goss (leaning) vs InSpec vs Testinfra.
-- **amd64-on-Mac policy:** do we bother supporting slow TCG amd64 builds locally, or tell agents to
-  push amd64 builds to CI and only build arm64 locally?
-- **Runner entrypoint:** Makefile vs Taskfile (`Taskfile.yml`).
-- Does Layer 3's boot test reuse the same NoCloud seed shape that `bpg/proxmox` will inject, so the
-  test mirrors real clone-time cloud-init?
+- **API token scoping on the phase-2 runner VM:** how the Proxmox token is stored/limited on that VM
+  (the placement itself is decided: a VM on the Proxmox host).
+- **libguestfs-on-macOS packaging:** which container image / invocation is the least-friction path for
+  Layer 2 locally.
 
 ## References
 
