@@ -1,4 +1,6 @@
-user_password = "changeme"
-output_raw = true
+# Non-secret build vars (committed). Proxmox connection + token live in an
+# untracked proxmox.auto.pkrvars.hcl (see proxmox.auto.pkrvars.hcl.example).
+ubuntu_version   = "noble"
+arch             = "amd64"
 qemu_accelerator = "kvm"
-ubuntu_version = "noble"
+user_password    = "changeme"

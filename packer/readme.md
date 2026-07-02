@@ -64,17 +64,21 @@ In addition to Cloud-init, we use shell scripts to perform additional customizat
 
 ## Build Instructions
 
-To build the image:
+To build the image, pick a template directory (e.g. [`ubuntu/`](ubuntu/)) and select an output with
+`-only`:
 
 ```bash
-cd build/packer/ubuntu-cloud-image/
-sudo packer init
-sudo packer build -var-file=variables.pkrvars.hcl .
-# Tip: Add this alias to your shell config
-# alias pb='sudo packer build -var-file=variables.pkrvars.hcl .'
+cd ubuntu
+packer init .
+
+# native Proxmox template
+packer build -only='proxmox-clone.ubuntu' .
+
+# portable local qcow2 (lands in output-<version>-<arch>/)
+packer build -only='qemu.ubuntu' .
 ```
 
-After running the Packer build, you'll find the final raw image in the `output-ubuntu-image` directory.
+See [`ubuntu/readme.md`](ubuntu/readme.md) for variables, secrets, and the Proxmox base-template setup.
 
 ## Testing & Troubleshooting
 
