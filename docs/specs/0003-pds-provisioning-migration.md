@@ -95,15 +95,30 @@ The exact list is the image's "manifest." Keeping it a plain, readable sequence 
 enough for now; a per-role manifest file can come later if we grow many roles. Shell-config files come
 from the PDS package, so `scripts/.p10k.zsh` / `scripts/zshrc` and their `file` provisioners are deleted.
 
-### 4. Gaps to close in PDS (cross-repo dependency)
+### 4. Gaps to close in PDS (cross-repo — tracked/worked in the PDS repo)
 
-- **Packaging coverage:** the `pds` package is built from PDS's `bash/debian/` tree (nfpm), but several
-  functions we need live in `bash/common/` and `bash/module/`. **Verify the `.deb` actually bundles
-  every function in the table above** (`pds list` / `pds show <fn>` after install); if not, they must be
-  added to the packaged set upstream before this migration can complete.
-- **Missing function:** the custom MOTD/neofetch block isn't in PDS — contribute it as e.g. `setup_motd`.
-- **Init path:** README references `/usr/share/pds-funcs/` while `profile.d/pds.sh` sources
-  `/usr/share/pds/init.sh` — confirm the real path and use it.
+Verified against PDS `packaging/nfpm.yaml` (bundles `bash/debian/` + `bash/common/` → `/usr/share/pds/`;
+`init.sh` auto-sources two levels deep, `platform/category/*.sh`) and the function locations:
+
+- **No hard blocker.** Every function this migration calls has a copy in the *packaged* set
+  (`common/` or `debian/`): `install_zi`/`configure_zsh` (`common/shell/zsh.sh`), `set_sudo_nopasswd`
+  (`common/shell` + `common/admin`), `update_system_cron_entry` + `restricted_ssh_security_profile`
+  (`common/admin/sysadmin.sh`), `install_kubectl` (`debian/software`). `bash/module/` is **not** packaged,
+  which is fine since it only holds duplicates.
+- **One real gap — MOTD:** the custom MOTD/neofetch block has no PDS equivalent. Contribute it (e.g.
+  `setup_motd`) so builders can drop its last inline block.
+- **Cleanup — duplicate definitions:** several functions exist in *both* `bash/module/` and `bash/common/`
+  (`set_sudo_nopasswd`, `update_system_cron_entry`, `configure_zsh`, ...). The unpackaged `module/`
+  copies risk drift; pick `common/` as canonical and retire/repackage `module/` consistently.
+- **Non-interactive contract:** `profile.d/pds.sh` (interactive-only, prints a welcome banner) is *not*
+  our entry point — builders sources `init.sh` directly. Confirm `source /usr/share/pds/init.sh` is
+  **side-effect-free and safe under `set -eux`** (it sources *all* category `*.sh`, so any file with
+  top-level side effects or required env would break a non-interactive build). Worth a guarantee in PDS.
+- **Path/name consistency:** PDS `packaging/README.md` says `/usr/share/pds-funcs/` while the real install
+  path is `/usr/share/pds/` — align the docs.
+
+> These are PDS-repo tasks. This spec only *depends* on them landing; builders work starts once the `pds`
+> package exposes `setup_motd` and the non-interactive `source` contract is confirmed.
 
 ## Acceptance criteria
 
