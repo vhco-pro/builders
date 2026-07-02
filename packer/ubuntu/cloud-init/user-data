@@ -19,9 +19,18 @@ preserve_hostname: false
 package_update: true
 package_upgrade: true
 
-# Minimal generic packages. qemu-guest-agent is required so Proxmox can see the
-# VM's IP. Extra tooling (zsh, kubectl, ...) comes from the PDS package in issue #3.
+# Baseline tooling from Ubuntu's default apt repos (native apt integration).
+# qemu-guest-agent is required so Proxmox can read the VM's IP. Things apt can't
+# do cleanly (third-party repos like gh/kubectl, and config/setup logic such as
+# the zsh plugins/p10k, MOTD, and hardening) come from the PDS package in issue #3.
 packages:
   - qemu-guest-agent
+  - git
+  - net-tools
+  - nmap
+  - nfs-common
   - curl
   - file
+  - build-essential
+  - zsh
+  - btop
