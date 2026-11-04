@@ -747,38 +747,26 @@ scope is verified and merged by the owner. Feature 0002 remains open for its wid
 
 ## Tasks
 
-The existing T1-T7 entries below are history from the earlier scope, with no completion inferred.
-Schedule the new package, bootstrap and harness tasks only after the revised baseline is reviewed and
-accepted; the design above records their dependency order without inventing completed task commits.
+T1-T7 were the earlier unchecked worklist; their source, reviews and delivery history remain in Git.
+This unchecked tail is replanned for the accepted combined scope without inventing completion ticks.
+PDS paths below refer to the existing `michielvha/PDS` dependency branch
+`feat/image-provisioning-pds`; builders stays on its existing owning feature branch. Each task is one
+local commit. No branch push, merge or release is implied by a task tick.
 
-Delivery note: the post-approval changes in `deae257` are documentation only (AGENTS, the feature
-record, README and recovery guide). The merge from main preserves its apt/PDS boundary in the migrated
-0003 draft. Commit `1dcd2c5` also changes the HCL command comment at line 47 to omit a redundant
-argument for the automatically loaded vars file. Executable settings, scripts and tests are unchanged.
-
-R-6 and R-7 reviewed `0b33ecf`; R-8 and R-9 reviewed `edcdb0a`. Those reviews became historical when
-the baseline and HCL comment changed. The latest exact-commit records are retained below; local
-checks that a reviewer executed are distinguished from retained implementer-observed live tests.
-No criterion is ticked while specification acceptance is pending.
-
-
-Local worklist. The owner reviewed the implementation and authorized committing it, updating PR #4
-and checking CI on 2026-11-04. No merge is authorized. No task or criterion is marked complete and no
-formal specification acceptance is inferred from that delivery request.
-
-- [ ] T1 `packer/ubuntu/tests/test_base_template.py` exercises remote refusal and retained-bundle recovery; observe missing-host and remote-preflight failures before implementing the transport (AC-01).
-- [ ] T2 `packer/ubuntu/scripts/prepare-base-image.sh`, `create-base-template.sh`, `import-base-template.sh` implement off-node preparation, verified upload and guarded import; T1 and live replacement-environment checks pass (AC-01).
-- [ ] T3 `packer/ubuntu/scripts/wait-cloud-init.sh`, `ubuntu.pkr.hcl` replace the Python adapter with strict Bash/jq checks; warning and malformed-result cases fail closed (AC-03, AC-04, AC-06).
-- [ ] T4 `packer/ubuntu/scripts/seal-image.sh`, `tests/test_sealing.sh` remove generated SSH/network configuration and discard the build-password hash; the real cloud-init regression and final artifact checks pass (AC-05, AC-06).
-- [ ] T5 `packer/ubuntu/recovery.md`, `readme.md` describe the tested bootstrap, recovery dependencies and both output commands (AC-01, AC-07).
-- [ ] T6 `packer/ubuntu/ubuntu.pkr.hcl` is exercised by native and portable builds, sealed-artifact inspection and independent fresh clones; preserve existing Proxmox guests and clean only owned test resources (AC-02, AC-03, AC-04, AC-05, AC-06).
-- [ ] T7 `packer/ubuntu/variables.pkr.hcl`, `ubuntu.pkr.hcl` and the example expose `proxmox_cpu_type` with default `host`; document the single-node decision, validate overrides and repeat the native build, CPU-feature and fresh-clone checks (AC-03, AC-05, AC-06, AC-07).
-
-R-3 independently reran all 26 local tests and remained a dirty-tree diagnostic. Its retained
-records below describe the evidence available during that review. The subsequent native clone and
-disk-inspection results and final cleanup audit address the incomplete proof in F-01. The README now explains interrupted builds and inline preparation privileges (F-03/F-04),
-and the recovery guide limits the moving URL claim to checksum identification (F-05). R-3 F-02
-was resolved by the owner in the Native CPU model decision. None of these follow-ups makes R-3 current or establishes acceptance.
+- [ ] T8 `PDS/AGENTS.md`, `PDS/CLAUDE.md`, `PDS/.github/copilot-instructions.md` adopt the pinned shared conventions while preserving existing code and independent standalone use; instruction links and local command references check cleanly (AC-11).
+- [ ] T9 `PDS/packaging/`, `PDS/bash/common/`, `PDS/bash/debian/`, `PDS/bash/config/zshrc`, `PDS/tests/image_provisioning_test.py` retain and commit the inherited image-provisioning candidate after its nine package tests, changed-shell lint and source/package comparison pass; record that these tests predate this continuation rather than inventing a failing-first history (AC-11).
+- [ ] T10 `PDS/tests/test_motd_presets.py` adds packaged-preset, switching, invalid-input and standalone/custom-file checks; observe missing helper/assets fail against T9 (AC-13).
+- [ ] T11 `PDS/bash/debian/admin/setup_motd.sh`, `PDS/bash/config/motd/`, `PDS/packaging/README.md` implement the file selector, three banners and documented compatibility; T10 and existing package tests pass (AC-13).
+- [ ] T12 `PDS/tests/test_image_baseline.py` adds real OpenSSH configuration/authentication and noninteractive updater/lock/conffile checks in disposable Ubuntu; observe the current helpers fail these checks (AC-14).
+- [ ] T13 `PDS/bash/common/admin/sysadmin.sh`, `PDS/bash/debian/admin/`, `PDS/bash/config/`, `PDS/packaging/README.md` implement the repeatable updater and validated no-reload SSH policy, with observer support for selected image policy; T12 and standalone helper checks pass (AC-11, AC-14).
+- [ ] T14 `PDS/tests/test_kubectl_image.py` exercises strict noninteractive execution, system-wide tool availability and propagated plugin failures; observe current user-local/warning behavior fail (AC-09, AC-10).
+- [ ] T15 `PDS/bash/debian/software/install_kubectl.sh`, `PDS/bash/config/`, `PDS/packaging/` add explicit system-image mode and verified Krew inputs while preserving ordinary per-user installation; T14 and package regression tests pass (AC-09, AC-10, AC-11).
+- [ ] T16 `packer/ubuntu/tests/test_pds_provisioning.py` adds package-identity, default/custom recipe, selected-call failure and SSH-order observation checks; observe the missing integration fail (AC-08, AC-09, AC-15).
+- [ ] T17 `packer/ubuntu/scripts/`, `packer/ubuntu/recipes/`, `packer/ubuntu/ubuntu.pkr.hcl`, `packer/ubuntu/variables.pkr.hcl`, `packer/ubuntu/pds/` implement the thin package bootstrap and recipe selection, move package operations ahead of final policy, and retain sealing outside recipes; T16, Packer validation and existing local checks pass (AC-06, AC-08, AC-09, AC-15).
+- [ ] T18 `packer/ubuntu/tests/`, `Makefile` add failing negative artifact and fresh-user checks for the bounded Ubuntu image validation, including real cron environment and preserved journal evidence (AC-05, AC-06, AC-10, AC-12, AC-14).
+- [ ] T19 `packer/ubuntu/tests/`, `Makefile`, `.github/workflows/`, `renovate.json5` implement the bounded shared check targets and secret-free PR checks, report skips explicitly, and expose pinned inputs to the updater; T18 and local CI-equivalent checks pass (AC-08, AC-12).
+- [ ] T20 `docs/validation/` records executed default/custom native and portable builds, sealed inspection, two fresh boots per recipe/output, scheduler/authentication/tool checks and ownership-limited cleanup; all pre-existing guests remain unchanged. Candidate-package proof is labelled separately from the later signed-release route (AC-01, AC-02, AC-03, AC-04, AC-05, AC-06, AC-08, AC-10, AC-12, AC-13, AC-14, AC-15).
+- [ ] T21 `readme.md`, `packer/ubuntu/readme.md`, `docs/ubuntu/`, `docs/development.md` align the short entry points and task guides with observed commands, recipes, branded MOTDs and validation limits; links/examples check cleanly and independent final implementation review targets the committed source (AC-07, AC-13, AC-15).
 
 ## Open Questions
 
