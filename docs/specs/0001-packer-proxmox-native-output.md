@@ -1,6 +1,6 @@
 ---
 status: draft
-status_description: "Combined baseline reviewed with two non-blocking implementation notes; owner acceptance is pending and integration is not implemented."
+status_description: "Owner approved opinionated defaults with explicit recipe customization; that clarification is under review before implementation."
 issue: https://github.com/vhco-pro/builders/issues/1
 goal: "Build reusable Ubuntu images with PDS bootstrap, automatic updates and restricted SSH as optional Proxmox templates or standalone qcow2/raw disks."
 covers:
@@ -253,7 +253,8 @@ validation is claimed by this preparation.
 - Off-node base preparation and retained-bundle recovery. Packer and libguestfs stay off Proxmox.
 - Native Ubuntu packages/settings through cloud-init, plus an exact PDS package and a readable
   select-and-apply bootstrap for Zi/Powerlevel10k, MOTD, GitHub CLI and kubectl.
-- Automatic nightly package updates and restricted SSH policy baked through PDS into both outputs.
+- The default recipe applies nightly package updates and restricted SSH through PDS to both outputs.
+  Custom recipes may deliberately change or omit those policy selections.
 - Shared configuration available to users created after sealing. No fixed admin user or key is baked in.
 - Package verification, static/local regression checks, real amd64 builds, offline inspection and two
   independently initialized boots for each output. Test resources have recorded ownership.
@@ -480,6 +481,32 @@ allocation; reserve an unused explicit ID when restricting the token to particul
 
 `packer/ubuntu/ubuntu.pkr.hcl` uploads the image configuration, runs `scripts/wait-cloud-init.sh`, passes the config path to `scripts/install.sh`, and calls `scripts/seal-image.sh --image-build` last. The readiness provisioner has a 20-minute deadline. Both builders share that ordering. The disabled Ubuntu account and its standard sudo rule remain so the existing authenticated session can request shutdown. Clone-time inputs supply usable deployed access. The expanded design adds the package-backed PDS step between native Ubuntu configuration and sealing. PDS remains standalone.
 
+### Default recipe and explicit customization
+
+The owner approved this contract on 2026-11-05: builders is a readable image recipe using shared PDS
+functions. The supplied default selects Zi/Powerlevel10k, the chosen MOTD, tooling, nightly updates
+and restricted SSH. Those selected defaults must be applied reliably and tested. They are not a
+mandatory policy for every custom image built with this repository.
+
+Keep the default function sequence in `packer/ubuntu/recipes/default.sh`. Packer's
+`provisioning_recipe` input defaults to that file. An operator can select another readable Bash recipe
+at build time, without changing the default recipe or PDS. Builders uploads the selected recipe,
+loads the installed PDS library, and runs that recipe as trusted image-build code; it never evaluates
+a string of function names. Missing recipe files and failed selected calls stop the build.
+A small example shows a custom selection omitting the update and SSH-policy calls. No profile
+framework or duplicated policy implementation is needed.
+
+Skipping a policy call means builders does not apply that PDS policy. It does not reverse policy
+inherited from the Ubuntu source or a customized parent image, and does not itself enable password
+login. A custom recipe must explicitly configure any different behavior it wants. Tests check the
+default recipe's strong settings and a custom recipe's actual selections separately.
+
+Native Ubuntu configuration, PDS package identity checks and image sealing remain builder steps.
+Custom recipes do not disable removal of temporary build credentials or reset of machine identity.
+The default and custom paths both leave real users, public keys, hostname and addressing to deployment.
+A PDS helper can still configure a normal host's user/key; cloud-init is the default VM-deployment
+entry point and does not become a dependency of standalone PDS.
+
 ### PDS provisioning and package identity
 
 Builders installs an exact PDS version, sources `/usr/share/pds/init.sh` explicitly in non-interactive
@@ -503,7 +530,7 @@ The owner first reviews the dependent PDS PR. Only after separate owner authoriz
 be merged and its existing release pipeline run. Record the actual CI-assigned version and published
 package identity in builders, replacing the candidate test input, then repeat signed-repository
 builds and fresh-user checks for both outputs. Until then the builders PR is a candidate integration;
-it cannot receive final acceptance from local-package tests alone. The agent does not merge or
+it cannot receive final implementation acceptance from local-package tests alone. The agent does not merge or
 trigger a release through this handoff.
 
 Only the needed PDS libraries and packaging receive dependent repairs. Both installed-package and
@@ -511,7 +538,7 @@ standalone checkout/raw-bootstrap usage are checked; loading the library defines
 running installers, changing shell options or downloading anything. No Proxmox dependency is added.
 
 The exact PDS version identifies the built image at seal time. Keep the signed PDS source/trust key
-and selected third-party APT repositories in the sealed image. The nightly all-package update policy
+and selected third-party APT repositories in the sealed image. With the default recipe, the nightly all-package update policy
 therefore upgrades PDS and GitHub CLI as new versions appear, and kubectl within its configured APT
 channel. Record the installed versions and retained repositories in build evidence. There is no
 package hold or promise that a running instance remains at the build-time versions; copied shell
@@ -575,7 +602,9 @@ transfer independently, without overwriting it. Do not pull the unrelated Cloudf
 
 ### Baked update and SSH policy
 
-Both outputs receive the same automatic-update and SSH baseline through named PDS functions.
+With the default recipe, both outputs receive the same automatic-update and SSH baseline through
+named PDS functions. Selecting a different recipe is the explicit build-time opt-out; builders does
+not reapply omitted policy outside that recipe.
 `update_system_cron_entry` selects the existing nightly `00:00` update policy, using the image's
 configured timezone. Its exact managed command uses `apt-get` with
 `DEBIAN_FRONTEND=noninteractive` and explicit dpkg `--force-confdef`/`--force-confold` handling, so
@@ -667,17 +696,19 @@ scope is verified and merged by the owner. Feature 0002 remains open for its wid
 - [ ] AC-03: `packer build -only='proxmox-clone.ubuntu' …` clones the base and produces a **template** on the PVE node (verified via `qm config <vmid>` showing `template: 1`) with an **empty cloud-init drive** attached; no per-build `qm importdisk`/upload anywhere in the flow. The native CPU model defaults to `host` and is configurable; the template and two fresh clones use the selected default, and blank or whitespace-padded model names fail local validation.
 - [ ] AC-04: `packer build -only='qemu.ubuntu' …` still produces the local qcow2/raw artifact.
 - [ ] AC-05: Both native and portable sealed outputs contain no site-specific hostname, static IP/netplan identity or SSH host keys; two independently initialized instances of each output receive distinct machine IDs and host keys and apply their supplied identities.
-- [ ] AC-06: The sealed image retains no build password, authorized keys or generated SSH policy override. The default Ubuntu account may remain only locked and keyless, with its standard sudo policy. Usable deployed users, keys and site-specific identity are supplied at clone time; the baked PDS SSH baseline remains effective after fresh cloud-init initialization.
+- [ ] AC-06: The sealed image retains no build password, authorized keys or generated SSH policy override. The default Ubuntu account may remain only locked and keyless, with its standard sudo policy. Usable deployed users, keys and site-specific identity are supplied at clone time; the default recipe's PDS SSH baseline remains effective after fresh cloud-init initialization.
 - [ ] AC-07: Short root and Ubuntu READMEs link canonical procedures for both output selections, PDS bootstrap, SSH/debugging and recovery; small flow diagrams use Mermaid and Proxmox is explicitly optional.
 - [ ] AC-08: Both builders install the exact selected PDS package, verify its identity and provenance, and fail on missing, mismatched or untrusted inputs; candidate-package testing is distinguished from a verified signed-repository release build.
-- [ ] AC-09: The shared provisioner applies native Ubuntu settings and an explicit PDS function selection for Zi/Powerlevel10k, MOTD, GitHub CLI, kubectl, Krew, neat/view-secret/stern, nightly package updates and restricted SSH; reusable implementations live in the standalone PDS package, and selected-function failures stop provisioning.
+- [ ] AC-09: The shared provisioner applies native Ubuntu settings and the default recipe's explicit PDS function selection for Zi/Powerlevel10k, MOTD, GitHub CLI, kubectl, Krew, neat/view-secret/stern, nightly package updates and restricted SSH; reusable implementations live in the standalone PDS package, and selected-function failures stop provisioning.
 - [ ] AC-10: A new deployment user receives working Zsh/Powerlevel10k, the kubectl alias/completion, Krew and the neat, view-secret and stern plugins from either output, with its configured Zsh login shell and sudo policy and without inheriting build credentials or build-home paths. Zi populates the existing plugin set on first shell startup with network access; no image-prefetched plugin cache is required.
 - [ ] AC-11: The PDS package loads non-interactively without installer/network side effects, preserves the caller's shell state and reports library failures; its supported standalone setup preserves Zi, the preset and the existing plugin set. Error-reporting assertions cover explicit non-interactive loading; interactive auto-loading is documented separately.
 - [ ] AC-12: Repository checks exercise package-backed provisioning, failure paths, sealed-artifact assertions and two fresh boots of each Ubuntu amd64 output; CI reports executed versus skipped checks, and native checks preserve all pre-existing guests.
 
 - [ ] AC-13: PDS bundles selectable VHCO, Stackweaver and preserved EdgeForge MOTD text presets; builders defaults to configurable VHCO, custom-file usage remains supported, and invalid selections leave the active MOTD and other MOTD scripts unchanged.
 
-- [ ] AC-14: Both image outputs retain one configured nightly midnight package-update job that runs non-interactively with an enabled scheduler and effective SSH settings that allow injected non-root public-key login while disabling password, keyboard-interactive and root login; repeated provisioning is safe and temporary Packer access is removed only after it is no longer needed.
+- [ ] AC-14: Both image outputs built with the default recipe retain one configured nightly midnight package-update job that runs non-interactively with an enabled scheduler and effective SSH settings that allow injected non-root public-key login while disabling password, keyboard-interactive and root login; repeated provisioning is safe and temporary Packer access is removed only after it is no longer needed.
+
+- [ ] AC-15: An operator can select a readable custom Bash recipe at invocation for either output without editing the default recipe or PDS; omitted PDS update/SSH policies are not applied elsewhere, missing recipes and failed calls stop the build, and generic-image cleanup still runs.
 
 ## Test Plan
 
@@ -697,6 +728,7 @@ scope is verified and merged by the owner. Feature 0002 remains open for its wid
 | AC-12 | Execute documented Make targets and PR checks, including negative artifact fixtures; retain per-output build/offline/boot results and explicit skips. For Proxmox, snapshot original guest configurations/power states, reserve unused owned IDs, and audit ownership-limited cleanup afterward. |
 | AC-13 | Inspect the built package for all three banner files and compare EdgeForge with the preserved legacy banner. Exercise each preset and custom-file usage in disposable Ubuntu, including standalone-checkout resolution, repeated application, preset switching, unknown names and missing files; verify unchanged operator scripts and no changes after invalid selection. Check the configured banner in both image outputs. |
 | AC-14 | Apply the PDS helpers twice in disposable Ubuntu; require one midnight job, scheduler enablement, sshd syntax/effective settings and successful non-interactive updates, including an upgrade of a deliberately modified conffile. Exercise held APT-list and dpkg locks, requiring bounded recovery and visible timeout failure. In a fresh instance of each output, execute the installed job's exact command under cron PATH with stdin /dev/null and require exit 0. Guest-side ssh.service PID/activation timestamp and journal evidence must establish no reload/restart between policy installation and sealing; a quiet Packer log is insufficient. For one owned instance per output, supply ssh_pwauth: true, disable_root: false, a temporary known non-root password and a temporary root key. Add a lower-precedence 10-test-permissive.conf enabling password, keyboard-interactive and root login; require the baked 00-pds-security.conf settings to win. Use a permissive control in the owned fixture to establish the credentials and authentication methods work without the PDS restriction, then restore the baseline and require non-root key success, password/keyboard-interactive/root-key refusal at authentication, only publickey offered, and matching sshd -T values. Root refusal must be authentication denial, not a cloud-init forced-command banner. Redact/discard test credentials and retain per-output results. Inspect the retained policy offline and check the scheduler/baseline in both fresh instances of each output. |
+| AC-15 | Validate default and custom recipe inputs for both builders; reject an unreadable/missing recipe before building. Exercise the real shared provisioner with the default and an explicit custom selection, requiring selected function order and propagated failure. Build clean default and custom artifacts, verify the latter has no PDS-managed update/SSH policy when those calls are omitted, and verify both retain credential/identity cleanup. A skipped call does not promise to undo vendor/inherited policy. |
 
 ## Tasks
 
