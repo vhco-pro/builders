@@ -44,7 +44,7 @@ source "qemu" "ubuntu" {
 # Clones the Stage-0 base cloud-init template (see scripts/create-base-template.sh),
 # customizes it, and seals it as a generic golden template with an empty cloud-init
 # drive for clone-time init. Build with:
-#   packer build -only='proxmox-clone.ubuntu' -var-file=proxmox.auto.pkrvars.hcl .
+#   packer build -only='proxmox-clone.ubuntu' .
 # ---------------------------------------------------------------------------
 source "proxmox-clone" "ubuntu" {
   # -- Proxmox API connection --

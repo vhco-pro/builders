@@ -97,8 +97,9 @@ the latest main-branch specification changes. No completion is claimed.
 
 The test range was 990100–990105. All seven pre-existing guests' configuration hashes and runtime
 statuses were checked throughout. Temporary API identities were removed after each native attempt.
-The task retained raw logs, cleanup evidence and runtime file hashes privately. The committed
-[validation summary](../validation/0001-2026-11-04.md) records the observed results and their limits.
+The task retained raw logs, cleanup evidence and runtime file hashes privately. These early troubleshooting details remain history recorded only in private artifacts. The committed
+[validation summary](../validation/0001-2026-11-04.md) covers the later off-node preparation,
+portable build and host-CPU run; it does not reproduce every earlier experiment.
 These earlier-run results do not establish current independent acceptance. No credentials are committed.
 
 ### Structure refactor for owner review
@@ -152,7 +153,8 @@ The retained test evidence is under `/tmp/builders-offnode/`, including `make-ch
 `prepare-clean.log`, `import-final-results.json`, `portable-final-build.log`, `inspection-results.json`,
 `portable-clone-results.json` and `native-results.json`. These local paths are review artifacts, not
 durable public links. The committed [validation summary](../validation/0001-2026-11-04.md)
-provides the portable record of these observations.
+covers the later host-CPU run and the portable checks. The earlier `kvm64` timeout/retry and
+five-resource cleanup details above remain history in private artifacts.
 
 ### Native host CPU follow-up (2026-11-04)
 
@@ -176,6 +178,16 @@ seven original guests' configuration hashes and power states match the fresh pre
 The committed [validation summary](../validation/0001-2026-11-04.md) records these checks.
 R-5 independently reran the local regression tests and read retained integration results. Its two
 documentation nits were corrected here; it remains a dirty diagnostic, not current acceptance.
+
+### Settled decisions and earlier review notes
+
+Off-node bootstrap is the owner's decision of 2026-11-04.
+The Bash/jq adapter follows the request to avoid unnecessary Python and continue after that
+recommendation. These implementation choices do not establish formal spec or feature acceptance.
+
+The earlier R-1 F-02 assumed jq would need an extra installation. The retained `/tmp/builders-offnode/portable-final-build.log` shows `wait-cloud-init.sh`
+using jq to parse real cloud-init status in the tested noble/amd64 build. The historic review is retained unchanged below. This draft also makes AC-06's
+build-access exception explicit, so the current criterion requires a new review.
 
 ## Scope
 
@@ -339,6 +351,10 @@ provisioning; they do not establish native-builder correctness. Spec 0002 must t
 
 ### Provisioning changes (identity removal)
 
+The QEMU seed grants temporary password SSH access for the build. Sealing replaces that password
+hash with `*` and removes cloud-init's generated SSH policy override. The native builder instead
+injects a temporary SSH key; both paths discard their build access before export.
+
 Both builders share the `build` block. Strip everything that makes the image machine-specific; that work
 moves to cloud-init at clone time:
 
@@ -416,9 +432,9 @@ allocation; reserve an unused explicit ID when restricting the token to particul
 
 | Criterion | Proof |
 | --- | --- |
-| AC-01 | Run the off-node bootstrap from a clean supported environment on unused IDs; verify template, guest agent and reset identity. Import the saved bundle from a second minimal environment without Packer/libguestfs. Occupied-ID and corrupt-bundle attempts must leave all existing guests unchanged. |
+| AC-01 | Run the off-node bootstrap from a clean supported environment on unused IDs; verify template, guest agent and reset identity. Import the saved bundle from a second minimal environment without Packer/libguestfs. Repeat import of the same verified bundle on another unused ID must produce the requested fixed configuration; generated IDs/MACs may differ. The same occupied ID must be refused, and corrupt-bundle attempts must leave existing guests unchanged. Moving upstream downloads are not a byte-identical rebuild guarantee. |
 | AC-02 | Run `make init`, then validate that both required plugin versions load. |
-| AC-03 | Run the native Packer build with a scoped test token; inspect the output template flag, cloud-init volume and absence of temporary cloud-init credentials. Verify the native default and both fresh clones report `cpu: host` and expose node AES/AVX features; validate a CPU override and reject both an empty model and a whitespace-padded value such as `" host "`. |
+| AC-03 | Run the native Packer build with a scoped test token; inspect the output template flag, cloud-init volume and absence of temporary cloud-init credentials. Inspect the native source and build log to confirm there is no disk-import or disk-upload step after Stage 0. Verify the native default and both fresh clones report `cpu: host` and expose node AES/AVX features; validate a CPU override and reject both an empty model and a whitespace-padded value such as `" host "`. |
 | AC-04 | Run the QEMU builder with raw export enabled; inspect both formats and compare their disk contents. |
 | AC-05 | Inspect a powered-off artifact, then boot two fresh instances with separate cloud-init inputs; compare machine IDs, host keys and applied identity. |
 | AC-06 | Run the manual disposable-container `tests/test_sealing.sh` check with real cloud-init; verify sealing removes the temporary SSH password override and discards the build-password hash. `make check` lint-checks this script but does not execute its destructive guest changes. Inspect both sealed outputs and boot fresh instances with consumer-supplied users/keys; effective SSH policy must match clone-time inputs. |
@@ -429,8 +445,9 @@ allocation; reserve an unused explicit ID when restricting the token to particul
 Delivery note: the post-approval changes in `deae257` are documentation only (AGENTS, the feature
 record, README and recovery guide). The runtime and test files match the owner-reviewed manifest.
 The merge from main adds its apt/PDS boundary to the migrated 0003 draft. No runtime feature changed.
-R-7 observed AC-02 and AC-07 as met; live-build criteria remain not independently verified. Its full
-criterion evidence is retained in the Review Log. No criterion is ticked while spec acceptance is pending.
+R-6 and R-7 reviewed the preceding baseline and became stale after its documentation corrections.
+R-9 refreshed the implementation review: AC-02 and AC-07 were observed as met; live-build criteria
+remain not independently verified. Its full criterion evidence is retained in the Review Log. No criterion is ticked while spec acceptance is pending.
 
 
 Local worklist. The owner reviewed the implementation and authorized committing it, updating PR #4
@@ -467,14 +484,6 @@ already received those checks, and this prevents verification of one base image 
 The owner's current off-node and CPU-model decisions remain settled.
 
 
-Off-node bootstrap is the owner's decision of 2026-11-04.
-The Bash/jq adapter follows the request to avoid unnecessary Python and continue after that
-recommendation. These implementation choices do not establish formal spec or feature acceptance.
-
-The earlier R-1 F-02 assumed jq would need an extra installation. The actual noble/amd64 manifest
-includes jq. The historic review is retained unchanged below. This draft also makes AC-06's
-build-access exception explicit, so the current criterion requires a new review.
-
 ## Review Log
 
 | Date | Review | Kind | Commit | Model | Isolation | Outcome |
@@ -486,6 +495,8 @@ build-access exception explicit, so the current criterion requires a new review.
 | 2026-11-04 | R-5 | implementation | `dd92fec037e2338000f62471d1353e2d96cd5520+dirty` | claude-opus-5-5 | procedural | Final CPU diagnostic after R-4 repairs; no completion acceptance. |
 | 2026-11-04 | R-6 | spec | `0b33ecf5dbcade3bb3042b1b0dc60d5cbad1e8d9` | claude-opus-5-5 | procedural | Six findings; factual corrections and one scope clarification. |
 | 2026-11-04 | R-7 | implementation | `0b33ecf5dbcade3bb3042b1b0dc60d5cbad1e8d9` | claude-opus-5-5 | procedural | AC-02 and AC-07 met; remaining live criteria not independently verified. |
+| 2026-11-04 | R-8 | spec | `edcdb0a169316f22d98854d9f44f8fab18459edf` | claude-opus-5-5 | procedural | Five non-blocking findings; Q1 remains pending. |
+| 2026-11-04 | R-9 | implementation | `edcdb0a169316f22d98854d9f44f8fab18459edf` | claude-opus-5-5 | procedural | AC-02 and AC-07 met; live execution remains not independently verified. |
 
 ### R-1
 
@@ -963,6 +974,89 @@ SEVERITY: nit
 WHERE: Test Plan AC-06 and Makefile check target
 EVIDENCE: Makefile:8-11 only runs ShellCheck on tests/test_sealing.sh. The unittest discovery runs 26 Python tests and none runs the sealer against real cloud-init. readme.md:207-215 documents a manual Docker run. The sealing behaviour behind AC-05 and AC-06 therefore has no automated local regression in `make check`.
 PROPOSAL: Note in the Test Plan that test_sealing.sh is a manual container check, and have spec 0002 run it in CI.
+
+### R-8
+
+
+FINDING: F-01
+KIND: factual
+SEVERITY: nit
+WHERE: Context, Live validation before the structure refactor and Off-node candidate checks
+EVIDENCE: Spec line 101 says the committed validation summary "records the observed results and their limits". That sentence follows the 2026-11-03 section, which reports the 12 GiB test disk, the duplicate machine ID and shared DHCP client ID defect, the deprecated cloud-init `user` string, the missing executable bit on the raw exporter, the early TCG memory-cap failures and the 990100 to 990105 test range (lines 77 to 98). docs/validation/0001-2026-11-04.md mentions none of these. Lines 154 to 155 say the summary "provides the portable record of these observations". Those observations include the earlier `kvm64` native template build, the build failure that led to raising the task timeout, the `kvm64` native fresh clones and the audit of five removed resources (lines 143 to 148). The summary describes only the later `host` CPU native run and its four removed resources (summary lines 33 to 42). It mentions the timeout only as a setting that leaves the QEMU source unchanged (line 56).
+PROPOSAL: Narrow both citations to what the summary contains. Either label the 2026-11-03 notes and the earlier `kvm64` native run as history recorded only in private artifacts, or add those observations to the validation summary.
+
+FINDING: F-02
+KIND: judgement
+SEVERITY: nit
+WHERE: Design, Provisioning changes, and Context, Primer
+EVIDENCE: The Design describes build access only for the native builder: "`proxmox-clone` generates a temporary SSH key" (line 314) and "remove the temporary build SSH key Packer injected" (line 362). The Primer gives the same native-only description (lines 57 to 59). The portable builder actually logs in with a password. ubuntu.pkr.hcl:31 sets `ssh_password = "ubuntu"`, and cloud-init/user-data:3-4 sets `password: ubuntu` and `ssh_pwauth: true`. The AC-06 Test Plan row checks that sealing "removes the temporary SSH password override and discards the build-password hash". seal-image.sh:11 and :16 do this with `usermod --password '*'` and `--configs ssh_config`. The Design never introduces this password access or the step that removes it, so the AC-06 proof relies on behaviour the Design does not describe.
+PROPOSAL: Add one Design sentence: the QEMU seed grants temporary password SSH access, and sealing replaces the password hash with `*` and removes cloud-init's SSH policy drop-in.
+
+FINDING: F-03
+KIND: judgement
+SEVERITY: nit
+WHERE: Acceptance Criteria AC-01, Test Plan AC-01
+EVIDENCE: AC-01 requires the base template to be created "repeatably". Design lines 266 to 268 say source downloads track Ubuntu's moving `current` directory, so a later fresh build will not be byte-identical, and that exact reuse comes from the retained bundle. The AC-01 proof runs one bootstrap and one bundle import. It never defines what a repeat run must show, so a reviewer cannot tell which reading of "repeatably" passes.
+PROPOSAL: Define "repeatably" in AC-01 or its proof. One option: rerunning the committed script on a new unused ID produces an equivalent base, and importing the retained bundle reproduces the same verified disk.
+
+FINDING: F-04
+KIND: judgement
+SEVERITY: nit
+WHERE: Test Plan AC-03
+EVIDENCE: AC-03 requires "no per-build `qm importdisk`/upload anywhere in the flow". The AC-03 proof checks the template flag, the cloud-init volume, leftover credentials, the CPU model and CPU validation. It sets no pass condition for the absence of an import or upload step. In source, the only `qm importdisk` is in the once-per-base import-base-template.sh:46, and the build block at ubuntu.pkr.hcl:82-119 has no import or upload step.
+PROPOSAL: Add a pass condition to the AC-03 proof. For example, inspecting ubuntu.pkr.hcl and the native build log shows no import or upload step after Stage 0.
+
+FINDING: F-05
+KIND: factual
+SEVERITY: nit
+WHERE: Open Questions
+EVIDENCE: Lines 470 to 476 come after the Q1 option table and its "Why this is yours" line, still under the `### Q1:` heading. They record settled decisions (off-node bootstrap, the Bash/jq adapter) and history about R-1 F-02, so they read as part of the pending Q1. Line 474 also states "The actual noble/amd64 manifest includes jq" with no citation. The standard requires Context and Design claims to be cited.
+PROPOSAL: Move these decision notes to Design or Context. Cite the jq claim with the retained portable build log showing wait-cloud-init.sh parsing real cloud-init JSON, or with the upstream manifest. Leave only Q1 under Open Questions.
+
+### R-9
+
+
+CRITERION: AC-01 A committed `create-base-template.sh` turns the official Ubuntu cloud image into a base cloud-init template on the PVE host (qemu-guest-agent embedded), repeatably; no hand-clicking.
+VERDICT: not verified
+EVIDENCE: I ran `git rev-parse HEAD`, `git status --short`, `git ls-files` and `python3 -B -m unittest discover -s packer/ubuntu/tests -v` at edcdb0a169316f22d98854d9f44f8fab18459edf. HEAD matches the target and the tree is clean. create-base-template.sh, prepare-base-image.sh and import-base-template.sh are tracked. All 26 tests passed, 16 of them in test_base_template. These cover the required remote host and explicit ID, refusal of a used ID with no download or delete, corrupt and partial bundles, upload corruption, the ID recheck on the node, disk shrink refusal, reuse of a verified bundle and the qm sequence that imports a cloud-init template. `git diff --stat 0b33ecf edcdb0a` shows only the 0001 spec changed. I read the source. prepare-base-image.sh:34-42 installs qemu-guest-agent and clears machine-id and host keys. import-base-template.sh:44-52 creates the VM, imports the disk, attaches ide2 cloudinit, enables the agent and runs qm template. I also read retained results that I did not observe being produced. /tmp/builders-offnode/import-final-results.json reports template 1, ide2 cloudinit, agent enabled=1, a non-root client without Packer or libguestfs, an occupied ID refused and protected guests unchanged. Limitations: I ran no live preparation or import against Proxmox. The local tests use stubs for ssh, qm and pvesh. A full Fedora restoration and an off-host backup are not established. The prior dirty-target reason no longer applies.
+
+CRITERION: AC-02 `packer init .` installs both `hashicorp/proxmox` (`1.2.4`) and `hashicorp/qemu` plugins.
+VERDICT: met
+EVIDENCE: I ran `packer init .` in packer/ubuntu at edcdb0a with Packer v1.16.2 (/tmp/builders-pr4-tools/packer). I set PACKER_PLUGIN_PATH, PACKER_CONFIG_DIR and PACKER_CACHE_DIR to an empty scratch directory, /tmp/r8-review.EVAPGo. Output: "Installed plugin github.com/hashicorp/proxmox v1.2.4" and "Installed plugin github.com/hashicorp/qemu v1.1.8", exit 0. A following `packer validate .` with a placeholder token against those plugins printed "The configuration is valid." ubuntu.pkr.hcl:1-12 pins proxmox = 1.2.4 and qemu = 1.1.8. Limitations: I ran the command directly, not through `make init` (Makefile:5 runs the same command). The run was on linux_amd64 only. The binary's zip hash matches the linux_amd64 entry of a SHA256SUMS file in the implementer's tool directory, and I did not verify that file's signature.
+
+CRITERION: AC-03 `packer build -only='proxmox-clone.ubuntu' …` clones the base and produces a **template** on the PVE node (verified via `qm config <vmid>` showing `template: 1`) with an **empty cloud-init drive** attached; no per-build `qm importdisk`/upload anywhere in the flow. The native CPU model defaults to `host` and is configurable; the template and two fresh clones use the selected default, and blank or whitespace-padded model names fail local validation.
+VERDICT: not verified
+EVIDENCE: I ran these at edcdb0a: `packer fmt -check -recursive .`, `packer validate .`, `packer validate -var 'proxmox_cpu_type=x86-64-v2-AES' .`, `packer validate -var 'proxmox_cpu_type=' .`, `packer validate -var 'proxmox_cpu_type= host ' .`, a validate with a whitespace-only value, and `packer inspect .`. fmt passed (exit 0). The default and the override printed "The configuration is valid." The empty, padded and whitespace-only values exited 1 with the variables.pkr.hcl:193 message. inspect shows var.proxmox_cpu_type "host" and both sources. In source, ubuntu.pkr.hcl:49-80 sets full_clone, cpu_type = var.proxmox_cpu_type, cloud_init = true and cloud_init_storage_pool, with ssh_username "ubuntu" and ssh_timeout "20m". The Packer flow has no importdisk or disk upload. I also read retained results that I did not observe being produced. /tmp/builders-hostcpu-20261104/native-results.json reports template 1, ide0 cloudinit and cpu host, and two clones with cpu host, the Xeon E5-2620 model, AES and AVX. I recomputed hashes for the 20 runtime files in runtime-manifest.json against edcdb0a blobs. Nineteen match. variables.pkr.hcl differs, and reversing the two lines in validation-guard-followup.patch gives da40255d2fcada1b48f87aae26e4f4c62130fff7af2ff5dd4de1ee3e91b3218b, which matches the manifest. Limitations: I observed no native build, no qm config and no clones. Only the local validation part of this composite criterion ran in this review.
+
+CRITERION: AC-04 `packer build -only='qemu.ubuntu' …` still produces the local qcow2/raw artifact.
+VERDICT: not verified
+EVIDENCE: I ran the unittest discovery (test_raw_export) and `packer validate .` at edcdb0a. The raw export test passed: export is optional, a real qemu-img conversion runs and an existing raw file is never overwritten. The qemu source and its export-raw.sh post-processor validate. I also read retained results that I did not observe being produced. /tmp/builders-offnode/portable-final-build.log ends with qemu.ubuntu artifacts in output-noble-amd64, and inspection-results.json reports qcow2_and_raw_identical true at 10 GiB virtual size. Limitations: I ran no QEMU Packer build. The retained build predates the native CPU, timeout and guard changes. The manifest comparison above shows ubuntu.pkr.hcl, the shared scripts and export-raw.sh are identical to the tested files.
+
+CRITERION: AC-05 The resulting image contains **no** baked hostname, static IP/netplan identity, or SSH host keys, and boots with a **fresh `machine-id`** (two clones get distinct ids).
+VERDICT: not verified
+EVIDENCE: I inspected seal-image.sh:13-22 at edcdb0a. It removes ssh_host_*, runs `cloud-init clean --logs --seed --configs ssh_config network`, truncates /etc/machine-id, relinks the D-Bus id, writes localhost to /etc/hostname and drops the 127.0.1.1 hosts entry. tests/test_sealing.sh:44-55 asserts these outcomes. I read the script but did not run it. I also read retained results that I did not observe being produced. /tmp/builders-hostcpu-20261104/inspection-results.json reports native generic_hostname, machine_id_empty, ssh_keys_absent and netplan_absent all true. native-results.json shows two native clones with distinct machine IDs and host keys. /tmp/builders-offnode/inspection-results.json and portable-clone-results.json show the same for the portable artifact and two portable boots. Limitations: I inspected no artifact and booted no instance. test_sealing.sh needs Docker, which this review may not run. Whether AC-05 must cover both outputs is still owner question Q1, so I applied no particular reading.
+
+CRITERION: AC-06 The sealed image retains no build password, authorized keys or generated SSH policy override. The default Ubuntu account may remain only locked and keyless, with its standard sudo policy. Any usable deployed login and site-specific identity or SSH policy are supplied at clone time.
+VERDICT: not verified
+EVIDENCE: I inspected seal-image.sh:11-16, cloud-init/user-data, ubuntu.pkr.hcl:30-33 and 77-79, tests/test_sealing.sh and the Makefile at edcdb0a. The sealer sets the ubuntu hash to `*`, removes the ubuntu and root authorized_keys and cleans the cloud-init ssh_config, which removes 50-cloud-init.conf. test_sealing.sh:16-19 reproduces `passwordauthentication yes` from the real seed, and :44-50 asserts `no`, hash `*` and that the override is absent. Makefile:10 only runs ShellCheck on it, which matches the manual boundary stated in the AC-06 Test Plan row. The native SSH settings match the Design text: only the key is generated, and the username and timeout are set explicitly. I also read retained results that I did not observe being produced. The native and portable inspection-results.json files report build_keys_absent, build_ssh_override_absent and build_password_discarded true. Both native clones show ubuntu_password "L", ssh_password_auth "no" and ssh_login_verified true. Both portable boots show password_auth "no" and consumer_key_login true. final-audit.json shows clone 990102 with consumer ciuser probe1, and the template config has no ciuser or sshkeys. Limitations: I did not run test_sealing.sh, since Docker is prohibited here. I observed no sealed disk and no fresh boot.
+
+CRITERION: AC-07 `packer/ubuntu/readme.md` documents the `-only` invocation for both formats and the required Proxmox variables/secrets.
+VERDICT: met
+EVIDENCE: I read packer/ubuntu/readme.md at edcdb0a and checked every variable in variables.pkr.hcl against the readme and proxmox.auto.pkrvars.hcl.example. readme.md:130 gives `packer build -only='proxmox-clone.ubuntu' .`, and readme.md:177-183 give the qemu forms, including output_raw=true. readme.md:123-132 tells the reader to copy the example file, which sets proxmox_url, proxmox_api_token_id, proxmox_node, proxmox_insecure, proxmox_storage_pool, proxmox_cpu_type, proxmox_task_timeout, base_template_name, template_name and template_vmid. The secret comes from a hidden-prompt PKR_VAR_proxmox_api_token with a never-commit warning (readme.md:128-135). The prose also explains proxmox_insecure, template_vmid, proxmox_storage_pool, proxmox_task_timeout and proxmox_cpu_type (readme.md:136-160). The `packer init .` and validate commands I ran follow the guide's preparation step. Limitations: I did not follow the guide through either build. proxmox_url, proxmox_node, base_template_name and template_name appear in the readme only through the referenced example file and the line 123 summary.
+
+FINDING: F-01
+KIND: factual
+SEVERITY: should-fix
+WHERE: Test Plan, Tasks delivery note, Review Log
+EVIDENCE: `vh-adlc fresh docs/specs/0001-packer-proxmox-native-output.md --repo . --plugin-pin 0e52f51f01b84eda75a976763c42d8ec0a07b544` at edcdb0a reports both R-6 (spec) and R-7 (implementation) as stale with reason `baseline-changed`. `git diff 0b33ecf edcdb0a` shows normative edits to the Test Plan rows for AC-01, AC-03 and AC-06, plus the new Q1. So the current normative baseline has no current spec review and no owner acceptance. The Tasks delivery note says "R-7 observed AC-02 and AC-07 as met" and does not say that R-7 is now stale against this baseline.
+PROPOSAL: Run a spec review at edcdb0a, or a later commit, before any acceptance row. Say in the delivery note that R-6 and R-7 reviewed the previous baseline.
+
+FINDING: F-02
+KIND: factual
+SEVERITY: nit
+WHERE: packer/ubuntu/ubuntu.pkr.hcl:47, Design (Selecting output format at invocation)
+EVIDENCE: The comment at ubuntu.pkr.hcl:47 gives `packer build -only='proxmox-clone.ubuntu' -var-file=proxmox.auto.pkrvars.hcl .`. readme.md:130 and :186 say `*.auto.pkrvars.hcl` loads automatically and use no -var-file, while the Design example uses `-var-file=variables.pkrvars.hcl` for both builders. Passing the auto file explicitly loads it twice. This does no harm, but it is a third invocation form.
+PROPOSAL: Align the source comment with readme.md:130, so the native command takes no -var-file and relies on the automatically loaded file.
 
 ## Sources
 
