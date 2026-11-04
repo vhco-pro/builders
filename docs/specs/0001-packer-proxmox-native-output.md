@@ -1,8 +1,8 @@
 ---
 status: draft
-status_description: "Owner approved opinionated defaults with explicit recipe customization; that clarification is under review before implementation."
+status_description: "Owner approved the reviewed default/custom recipe contract; entering implementation with no merge permission."
 issue: https://github.com/vhco-pro/builders/issues/1
-goal: "Build reusable Ubuntu images with PDS bootstrap, automatic updates and restricted SSH as optional Proxmox templates or standalone qcow2/raw disks."
+goal: "Build customizable Ubuntu images with PDS bootstrap and opinionated update/SSH defaults, as optional Proxmox templates or standalone qcow2/raw disks."
 covers:
   - packer/ubuntu/
   - Makefile
@@ -17,12 +17,20 @@ branch: feat/0001-packer-proxmox-native
 
 # Plan: Ubuntu baseline images with PDS, updates and restricted SSH
 
-Build reusable Ubuntu images with a PDS default recipe selecting nightly updates and restricted SSH;
+Build reusable Ubuntu images with a builders default recipe calling PDS for nightly updates and restricted SSH;
 operators may select a custom recipe with different choices.
 Select a standalone disk or optional native Proxmox template; supply deployment identity through
 cloud-init.
 
 ## Context
+
+The owner explicitly accepted the default-recipe/customization contract and requested continuation
+on 2026-11-05 after the owner-facing explanation. That approval covers implementing and testing this
+scope, including the PDS dependency; it does not authorize merging or publishing the homelab guides.
+R-17 retains two non-blocking notes for the implementation: observe selected SSH-policy application
+inside custom recipes, and distinguish the builders recipe from the PDS function library. No new
+product policy was inferred from that review.
+
 
 Migration: this file now uses the pinned vh-adlc format in its existing location. Earlier checklist ticks are historical and are not imported as current acceptance. No review or owner-acceptance record has been invented.
 
@@ -796,6 +804,8 @@ None.
 | 2026-11-04 | R-14 | spec | `fa4b1b5d446447ac37c4990ad81a9b08f9865446` | claude-opus-5-5 | procedural | Five non-blocking findings about control probes, reload evidence, APT locks and a stale harness reference. |
 | 2026-11-04 | R-15 | spec | `eb38755c4218f7d315a32951f53cf589115630e0` | claude-opus-5-5 | procedural | Two implementation/testing nits; no blocking findings. |
 | 2026-11-05 | R-16 | spec | `59928bc110dedec4c6f91cbbd7c18c384cee2f65` | claude-opus-5-5 | procedural | Four non-blocking consistency/proof findings for custom recipe behavior. |
+| 2026-11-05 | R-17 | spec | `08f056d8dea3b5cba1702cc03242a9ea43650be6` | claude-opus-5-5 | procedural | Two non-blocking implementation/wording nits; no blocking findings. |
+| 2026-11-05 | R-17 | spec | `08f056d8dea3b5cba1702cc03242a9ea43650be6` | n/a | n/a | accepted by owner |
 
 ### R-1
 
@@ -1571,6 +1581,24 @@ SEVERITY: nit
 WHERE: Design (Baked update and SSH policy)
 EVIDENCE: :633-637 requires package operations that can restart services to finish before the SSH policy is installed, and requires no sshd restart before sealing. Under the recipe model, call order is set in the recipe file. The spec makes default.sh responsible for this, but does not say whether a custom recipe that selects restricted_ssh_security_profile before later installers carries the same ordering duty or gets a builder check. On the QEMU password path, an sshd restart after the policy is applied would cut Packer's build access.
 PROPOSAL: Add one sentence saying that any recipe selecting the SSH policy must call it last, after service-restarting installers, and that the PID and activation check applies whenever that call is selected, not only to the default recipe.
+```
+
+### R-17
+
+```text
+FINDING: F-01
+KIND: judgement
+SEVERITY: nit
+WHERE: Design, Baked update and SSH policy (custom-recipe ordering sentence); Test Plan AC-14, AC-15
+EVIDENCE: docs/specs/0001-packer-proxmox-native-output.md:645-647 says "Any recipe selecting `restricted_ssh_security_profile` must call it last" and "The guest PID/activation check applies whenever that policy is selected, including in a custom recipe." Builders runs the selected recipe as one trusted script (:494-496), and :640 places the PID capture "immediately before policy installation", which is inside the recipe. The spec does not say how builders finds that point in a custom recipe, or whether the call-last rule is enforced or only documented. AC-14 and its proof cover only the default recipe (:716, :737). The AC-15 proof (:738) exercises only custom.example.sh, which omits the SSH policy (:497-498). So no criterion or proof row observes the custom-recipe obligation, and a custom recipe that calls the policy before a later installer passes every box.
+PROPOSAL: Name the mechanism. For example, builders captures ssh.service MainPID/ActiveEnterTimestamp through a small builder-provided step or wrapper around the selected policy call and compares the values at the end of sealing, and the AC-15 proof shows this check fails for a fixture recipe that restarts sshd after selecting the policy. Otherwise, reword :645-647 as a documented recipe-author rule that builders does not verify.
+
+FINDING: F-02
+KIND: factual
+SEVERITY: nit
+WHERE: Summary (line 20); frontmatter goal (line 5)
+EVIDENCE: :20 says "a PDS default recipe selecting nightly updates and restricted SSH". :492 puts the default recipe in builders at `packer/ubuntu/recipes/default.sh`, and :493-494 says operators select another recipe "without changing the default recipe or PDS". So the recipe belongs to builders, and PDS only supplies the functions it calls. The frontmatter goal at :5 still says, without qualification, that the images have "automatic updates and restricted SSH". The R-16 F-01 repair qualified :428 and :563 the same way.
+PROPOSAL: Change :20 to say "a builders default recipe that calls PDS functions for nightly updates and restricted SSH". In the goal, add "by default" or a similar qualifier.
 ```
 
 ## Sources
