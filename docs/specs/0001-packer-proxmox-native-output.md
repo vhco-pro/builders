@@ -2,7 +2,7 @@
 status: draft
 status_description: "Combined image baseline includes PDS bootstrap, nightly updates and restricted SSH; renewed exact-commit review and acceptance remain pending."
 issue: https://github.com/vhco-pro/builders/issues/1
-goal: "Build usable, generic Ubuntu images with shared PDS bootstrap as an optional native Proxmox template or standalone qcow2/raw disk."
+goal: "Build reusable Ubuntu images with PDS bootstrap, automatic updates and restricted SSH as optional Proxmox templates or standalone qcow2/raw disks."
 covers:
   - packer/ubuntu/
   - Makefile
@@ -15,10 +15,11 @@ covers:
 branch: feat/0001-packer-proxmox-native
 ---
 
-# Plan: Generic Ubuntu images with PDS bootstrap
+# Plan: Ubuntu baseline images with PDS, updates and restricted SSH
 
-Build usable Ubuntu images with a shared PDS bootstrap, selecting a standalone disk or an optional
-native Proxmox template at invocation. Keep deployment identity in cloud-init.
+Build reusable Ubuntu images with PDS bootstrap, nightly automatic updates and restricted SSH.
+Select a standalone disk or optional native Proxmox template; supply deployment identity through
+cloud-init.
 
 ## Context
 
@@ -509,6 +510,13 @@ Only the needed PDS libraries and packaging receive dependent repairs. Both inst
 standalone checkout/raw-bootstrap usage are checked; loading the library defines functions without
 running installers, changing shell options or downloading anything. No Proxmox dependency is added.
 
+The exact PDS version identifies the built image at seal time. Keep the signed PDS source/trust key
+and selected third-party APT repositories in the sealed image. The nightly all-package update policy
+therefore upgrades PDS and GitHub CLI as new versions appear, and kubectl within its configured APT
+channel. Record the installed versions and retained repositories in build evidence. There is no
+package hold or promise that a running instance remains at the build-time versions; copied shell
+configuration is not automatically regenerated merely because the PDS library package upgrades.
+
 ### Bootstrap preservation map
 
 | Earlier capability | Planned home and observable result |
@@ -531,10 +539,20 @@ snippets into each user's home when first needed. Powerlevel10k may also fetch i
 binary. First shell startup therefore needs internet access, and upstream plugin revisions can
 change between users or deployments.
 
-Keep the current Zi configuration and standalone installation behavior. This scope adds no
-image-specific plugin cache, shared prefetched asset tree or plugin lockfile. Pinning the PDS
+Keep the current Zi configuration and standalone installation behavior. For Zi shell plugins, this scope adds no
+image-specific cache, shared prefetched asset tree or plugin lockfile. Pinning the PDS
 package fixes its functions and configuration; it does not freeze first-login plugin contents.
 Record that reproducibility limit in the bootstrap guide and validation results.
+
+Krew and its required neat/view-secret/stern plugins are system tooling installed during the image
+build, independently of Zi's shell-plugin downloads. PDS supplies an explicit system-install mode
+that preserves its ordinary per-user workstation behavior. Image mode installs a root-owned Krew
+tree under `/usr/local/share/pds/krew`, exposes its `bin` directory and `KREW_ROOT` to deployed Bash
+and Zsh users, and requires each selected plugin installation to succeed. Deployed users can execute
+these tools without referring to `/root/.krew`; updating that shared tree is an administrator task.
+A user can explicitly select a private Krew root for their own plugin changes. Test both fresh-user
+execution and the retained standalone per-user installer. No build-user credentials or home state
+are copied to make this work.
 
 The package's interactive auto-loader and login message remain PDS behavior during this preparation.
 AC-11's strict error-reporting contract applies to explicit non-interactive loading; it makes no
@@ -559,20 +577,27 @@ transfer independently, without overwriting it. Do not pull the unrelated Cloudf
 
 Both outputs receive the same automatic-update and SSH baseline through named PDS functions.
 `update_system_cron_entry` selects the existing nightly `00:00` update policy, using the image's
-configured timezone. It updates APT metadata and upgrades available packages, not only security
-packages. Native Ubuntu package configuration provides the scheduler, and its enabled state must
+configured timezone. Its exact managed command uses `apt-get` with
+`DEBIAN_FRONTEND=noninteractive` and explicit dpkg `--force-confdef`/`--force-confold` handling, so
+modified configuration files cannot leave the job waiting for input. It updates APT metadata and
+upgrades available packages, not only security packages. Native Ubuntu package configuration provides the scheduler, and its enabled state must
 survive into each fresh instance. Repeated provisioning creates one managed job. This scope adds no
 automatic reboot policy.
 
 `restricted_ssh_security_profile` supplies a retained managed OpenSSH configuration: password and
 keyboard-interactive login disabled, public-key authentication enabled, and root SSH login disabled.
+Store the baseline in `/etc/ssh/sshd_config.d/00-pds-security.conf`, ordered before generated
+`50-cloud-init.conf` and distribution `60-cloudimg-settings.conf`. It enforces key-only, non-root
+SSH even when a deployment input requests `ssh_pwauth: true`; changing that baseline is an explicit
+operator configuration change. Verify the actual include precedence with `sshd -T`, including any
+existing main-file settings, rather than relying only on the filename.
 The current PDS function only rewrites a few default lines with sed; the dependent PDS repair must
 make the intended effective settings reliable and repeatable without duplicating the logic in builders.
 Verify configuration syntax and effective settings, including after clone-time cloud-init runs.
 
 Keep temporary Packer access usable until provisioning and sealing finish. The QEMU path initially
-uses password access, while the native path uses a temporary key. Apply the final policy without a
-premature daemon restart, then remove the temporary build password/key and generated policy during
+uses password access, while the native path uses a temporary key. Apply the final policy without any
+sshd reload/restart before sealing, then remove the temporary build password/key and generated policy during
 sealing. The retained PDS policy must survive cleanup and fresh cloud-init initialization. A finished
 instance accepts its injected non-root user's key, rejects password login and rejects root SSH.
 This is separate from resetting SSH host keys and machine identity.
@@ -585,7 +610,10 @@ Provide three bundled text banners under PDS `bash/config/motd/`: `vhco.txt`, `s
 `/usr/share/pds/config/motd/`. Preserve the legacy EdgeForge banner from
 `origin/main:packer/ubuntu/scripts/install.sh` rather than replacing it with the new brand.
 The original MOTD block and draft banner text were retained privately for comparison; the new VHCO
-and Stackweaver assets are plain title drafts pending their visual treatment.
+and Stackweaver assets are plain title drafts pending their visual treatment. The EdgeForge
+comparison target is the rendered text of the original plain echo lines, ignoring trailing whitespace.
+Keep one plain banner, with the optional information-tool argument controlling system information;
+the duplicated coloured output and unconditional neofetch invocation are historical behavior.
 
 Keep `setup_motd <banner-file> [none|fastfetch|neofetch]` compatible with the existing candidate.
 Add `setup_motd_preset <vhco|stackweaver|edgeforge> [none|fastfetch|neofetch]` as a small selector
@@ -641,7 +669,7 @@ scope is verified and merged by the owner. Feature 0002 remains open for its wid
 
 - [ ] AC-13: PDS bundles selectable VHCO, Stackweaver and preserved EdgeForge MOTD text presets; builders defaults to configurable VHCO, custom-file usage remains supported, and invalid selections leave the active MOTD and other MOTD scripts unchanged.
 
-- [ ] AC-14: Both image outputs retain one configured nightly midnight package-update job with an enabled scheduler and effective SSH settings that allow injected non-root public-key login while disabling password, keyboard-interactive and root login; repeated provisioning is safe and temporary Packer access is removed only after it is no longer needed.
+- [ ] AC-14: Both image outputs retain one configured nightly midnight package-update job that runs non-interactively with an enabled scheduler and effective SSH settings that allow injected non-root public-key login while disabling password, keyboard-interactive and root login; repeated provisioning is safe and temporary Packer access is removed only after it is no longer needed.
 
 ## Test Plan
 
@@ -654,13 +682,13 @@ scope is verified and merged by the owner. Feature 0002 remains open for its wid
 | AC-05 | Inspect each native and portable sealed artifact read-only, then boot two fresh instances of each with separate cloud-init inputs; compare machine IDs, host keys and applied identity. The qcow2/raw disks must compare identically. |
 | AC-06 | Run the manual disposable-container `tests/test_sealing.sh` check with real cloud-init; verify sealing removes the temporary SSH password override and discards the build-password hash. `make check` lint-checks this script but does not execute its destructive guest changes. Inspect both sealed outputs and boot fresh instances with consumer-supplied users/keys; effective SSH policy must retain the baked restrictions while accepting the supplied non-root user's key. |
 | AC-07 | Follow linked task guides for both outputs and a temporary SSH/VNC session; check local links, examples and variables against source. Render both Mermaid diagrams and verify the standalone quick start needs no Proxmox credentials. |
-| AC-08 | Exercise exact-version repository installation and explicit candidate upload; reject wrong version, package name, checksum, trust and missing-function inputs. Inspect dpkg package metadata and recorded provenance in each built output; final validation includes the signed-repository route. |
+| AC-08 | Exercise exact-version repository installation and explicit candidate upload; reject wrong version, package name, checksum, trust and missing-function inputs. Inspect dpkg metadata, provenance, APT source files and keyrings in each built output; record exact build-time versions and the retained signed repositories. Final validation includes the signed-repository route; the baked updater is expected to advance running-package versions later. |
 | AC-09 | Inspect the selected PDS functions and their installed-package origins; execute real provisioning and verify tools/settings in the image. Inject a failing selected function and require the provisioner to fail before sealing. |
-| AC-10 | Log into each fresh instance as its supplied new user; check the actual Zsh login shell and documented sudo policy, preset, kubectl alias/completion, Krew and neat/view-secret/stern commands. Exercise actual Zi first-login downloads with network access, then verify the preset/plugins work on a subsequent shell startup; record the downloaded revisions and network requirement. Inspect /root and /home/ubuntu in each sealed filesystem for build-user paths, keys, tokens and history; use a complete native cicustom snippet and equivalent portable NoCloud seed. |
+| AC-10 | Log into each fresh instance as its supplied new user; check the actual Zsh login shell and documented sudo policy, preset, kubectl alias/completion, Krew and neat/view-secret/stern commands. Exercise actual Zi first-login downloads with network access, then verify the preset/plugins work on a subsequent shell startup; record the downloaded revisions and network requirement. Verify Krew and neat/view-secret/stern execute from the shared system tree as the new user without a Krew download, and retain standalone per-user coverage. Inspect /root and /home/ubuntu in each sealed filesystem for build-user paths, keys, tokens and history; use a complete native cicustom snippet and equivalent portable NoCloud seed. |
 | AC-11 | Install the built PDS package in disposable Ubuntu and run its strict-load, missing-library, Zi/preset, MOTD, sudoers and standalone-path tests. Add real selected-installer/new-user coverage; existing Zi stubs do not prove actual downloads or plugin startup. |
 | AC-12 | Execute documented Make targets and PR checks, including negative artifact fixtures; retain per-output build/offline/boot results and explicit skips. For Proxmox, snapshot original guest configurations/power states, reserve unused owned IDs, and audit ownership-limited cleanup afterward. |
 | AC-13 | Inspect the built package for all three banner files and compare EdgeForge with the preserved legacy banner. Exercise each preset and custom-file usage in disposable Ubuntu, including standalone-checkout resolution, repeated application, preset switching, unknown names and missing files; verify unchanged operator scripts and no changes after invalid selection. Check the configured banner in both image outputs. |
-| AC-14 | In disposable Ubuntu, apply the PDS update/SSH helpers twice; check exactly one midnight job, scheduler enablement, sshd syntax and effective authentication settings. Build both outputs without losing Packer access; inspect the retained policy offline and verify the job, scheduler and effective SSH settings in two fresh instances per output. Observe successful injected non-root key login and failed password/root login; retain the executed results and limits. |
+| AC-14 | Apply the PDS helpers twice in disposable Ubuntu; require one midnight job, scheduler enablement, sshd syntax/effective settings and successful non-interactive updates, including an upgrade of a deliberately modified conffile. In a fresh instance of each output, execute the installed job's exact command under cron PATH with stdin /dev/null and require exit 0. Build logs must show no sshd reload/restart before sealing. For one owned instance per output, supply ssh_pwauth: true, a temporary known non-root password and a temporary root key so permissive SSH settings would admit the negative probes; require non-root key success, password/keyboard-interactive/root-key refusal, only publickey offered, and matching sshd -T values. Redact/discard test credentials and retain per-output results. Inspect the retained policy offline and check the scheduler/baseline in both fresh instances of each output. |
 
 ## Tasks
 
@@ -717,6 +745,7 @@ None.
 | 2026-11-04 | R-10 | spec | `1dcd2c59a5a01cc2301f63e41ab1516cbe6d88f1` | claude-opus-5-5 | procedural | One delivery-note nit; Q1 remains pending. |
 | 2026-11-04 | R-11 | implementation | `1dcd2c59a5a01cc2301f63e41ab1516cbe6d88f1` | claude-opus-5-5 | procedural | No implementation findings; AC-02 and AC-07 met, remaining criteria not independently verified. |
 | 2026-11-04 | R-12 | spec | `4bf428f9cb2e4e4ce20eb8e6c5619af23d0a3209+dirty` | claude-opus-5-5 | procedural | Diagnostic of expanded PDS scope; six findings, no acceptance. |
+| 2026-11-04 | R-13 | spec | `7b818c9e3e98d402d3b72710c6542bdb5315de9d` | claude-opus-5-5 | procedural | Six non-blocking findings about update execution, SSH proof, shared Krew and package lifecycle. |
 
 ### R-1
 
@@ -1364,6 +1393,50 @@ SEVERITY: nit
 WHERE: AC-10, AC-11; Test Plan AC-10
 EVIDENCE: Installing the package changes deployed-user shells in two ways that no section mentions. pds-source/packaging/scripts/postinstall.sh:29-38 appends an auto-load block to /etc/bash.bashrc that runs `. /usr/share/pds/init.sh 2>/dev/null || true`. packaging/profile.d/pds.sh:26-29 hides loader stderr and prints "PDS Functions loaded!" on interactive login. So AC-11's "reports library failures" holds for the explicit build-time source but not for every deployed user's shell. Also, the provisioners run under `sudo -n bash` (ubuntu.pkr.hcl:97,102), so `configure_zsh` (zsh.sh:59-60,67) and `install_kubectl` (install_kubectl.sh:25-28,84-85) write to the invoking HOME. That HOME is likely /root rather than the ubuntu account, and the AC-10 inspection of "build-user paths" does not name /root.
 PROPOSAL: State whether the image keeps package auto-loading and the login message for deployed users, and narrow AC-11's failure-reporting promise to the paths it covers. Include /root in the AC-10 residue inspection.
+
+### R-13
+
+FINDING: F-01
+KIND: judgement
+SEVERITY: should-fix
+WHERE: Design, Baked update and SSH policy; AC-14; Test Plan AC-14
+EVIDENCE: The design keeps "the existing nightly `00:00` update policy". The only existing implementation is pds-source/bash/common/admin/sysadmin.sh:8-9, which appends `0 0 * * * root apt update -y && apt upgrade -y` to /etc/crontab. It sets no DEBIAN_FRONTEND and no dpkg conffile options. Under cron, stdin is not a terminal, so a conffile prompt during `apt upgrade` aborts the configure step. The image modifies at least two dpkg conffiles: /etc/crontab (cron package), through this same helper, and /etc/bash.bashrc (bash package), through pds-source/packaging/scripts/postinstall.sh:30-34. The first upstream conffile change in either package can therefore leave dpkg half-configured and stop every later nightly upgrade. The AC-14 proof checks only "exactly one midnight job, scheduler enablement", so a job that fails every night still passes. The owner's request for scheduler proof is not met by a job and timer that exist but never succeed.
+PROPOSAL: Require the managed job to run non-interactively, with DEBIAN_FRONTEND=noninteractive and explicit conffile handling such as `--force-confdef --force-confold`. In AC-14's proof, run the installed job's exact command in a fresh instance of each output under cron's environment (cron PATH, stdin /dev/null) and require exit 0. Include a modified-conffile case in the disposable-Ubuntu test.
+
+FINDING: F-02
+KIND: judgement
+SEVERITY: should-fix
+WHERE: Design, Baked update and SSH policy; AC-06; AC-14; Test Plan AC-06 and AC-14
+EVIDENCE: On Ubuntu, sshd_config includes `sshd_config.d/*.conf` before its own settings, and OpenSSH keeps the first value it reads. The cloud image ships 60-cloudimg-settings.conf (tests/test_sealing.sh:14 models it). When a cloud-config sets `ssh_pwauth`, cloud-init writes 50-cloud-init.conf, which sorts ahead of both. The build seed itself does this (packer/ubuntu/cloud-init/user-data:4). The current PDS function only edits the main /etc/ssh/sshd_config with sed (sysadmin.sh:140-144), so any drop-in overrides it. The design asks for "a retained managed OpenSSH configuration" that stays effective "after clone-time cloud-init runs" and for keyboard-interactive to be disabled to enforce key-only login. It never says where that file goes or how it is ordered against 50-cloud-init.conf. The Test Plan boots fresh instances only with consumer configs that produce no such drop-in, so it cannot tell whether the baked policy wins or loses when clone-time input sets `ssh_pwauth: true`. A drop-in that sorts before 50 would also apply to the QEMU build's password session after any sshd reload. That is the build-access ordering the design wants to protect.
+PROPOSAL: Name the managed drop-in path and its sort order relative to 50-cloud-init.conf and 60-cloudimg-settings.conf, and state the result the owner selected: key-only is enforced even when deployment input requests password auth. Add a fresh instance per output whose cloud-config sets `ssh_pwauth: true` and check `sshd -T`, and confirm in the build log that no sshd reload or restart happens before sealing.
+
+FINDING: F-03
+KIND: judgement
+SEVERITY: should-fix
+WHERE: Test Plan AC-06, AC-14
+EVIDENCE: The AC-14 proof asks to "Observe ... failed password/root login". By default, cloud-init creates deployed users with locked passwords, and sealing removes /root/.ssh/authorized_keys (seal-image.sh:12). So both logins fail whatever PasswordAuthentication, KbdInteractiveAuthentication and PermitRootLogin say. These negative probes cannot fail, and they do not show that the policy is in force.
+PROPOSAL: Make the negative probes able to fail. Give the test user a known password and inject a root key in one owned instance per output. Then require password, keyboard-interactive and root-key attempts to be refused, with the server offering only `publickey`, alongside the `sshd -T` values.
+
+FINDING: F-04
+KIND: judgement
+SEVERITY: should-fix
+WHERE: Design, Bootstrap preservation map (Krew row) and following Zi paragraphs; AC-10
+EVIDENCE: The Krew row requires Krew, neat, view-secret and stern for "a fresh deployment user through supported PDS image/user setup" and says "Failed downloads cannot be logged as successful provisioning". That implies the downloads happen at build time. The candidate installs everything under `$HOME/.krew` of the invoking user (install_kubectl.sh:60,71-73,84-104), and the build runs as root via `sudo -n bash` (ubuntu.pkr.hcl:102). A user created at clone time therefore needs either a shared Krew root that is baked into the image or a per-user download on first login. The design names neither. Lines 534-536 add "This scope adds no image-specific plugin cache, shared prefetched asset tree or plugin lockfile" without limiting that to Zi. Read literally, it rules out the shared Krew tree that the build-time wording implies. If Krew is downloaded at first login instead, that contradicts the provisioning-failure wording, and AC-10's proof gives no network condition for Krew as it does for Zi.
+PROPOSAL: State where Krew and its three plugins live for users created after sealing, for example a system KREW_ROOT installed at build time and on every user's PATH, and when they are downloaded. Limit the "no shared prefetched asset tree" sentence to Zi plugins, or explicitly extend first-login behavior to Krew with a matching AC-10 proof condition.
+
+FINDING: F-05
+KIND: judgement
+SEVERITY: should-fix
+WHERE: Design, PDS provisioning and package identity; Baked update and SSH policy; AC-08
+EVIDENCE: Normal builds install an exact PDS version "from the signed PDS APT repository", and AC-08 verifies "dpkg package metadata ... in each built output". The baked nightly job runs a plain `apt upgrade -y` on every package. If the signed PDS source stays configured in the sealed image, deployed instances move to whatever PDS release is newest at the next midnight. The same applies to kubectl within the pkgs.k8s.io channel that install_kubectl.sh:16 adds. The design does not say whether the PDS repository and its trust key remain in the image. So the exact-version guarantee and the shell assets of deployed users after first night are undefined, and no Test Plan row checks the retained source.
+PROPOSAL: State whether the sealed image keeps the signed PDS source. If it does, say that the exact pin describes the image at seal time and that deployed instances follow PDS releases nightly. If it does not, remove the source during provisioning or sealing. Add an offline inspection of /etc/apt/sources.list.d and keyrings to AC-08's proof.
+
+FINDING: F-06
+KIND: factual
+SEVERITY: nit
+WHERE: Design, File-based MOTD presets; Test Plan AC-13
+EVIDENCE: The Test Plan asks to "compare EdgeForge with the preserved legacy banner". The original block (motd-preset-drafts/edgeforge-original-block.txt:21-28 and 39-49) prints a plain banner, then a coloured copy, then runs neofetch, and it replaces other MOTD scripts. The draft edgeforge.txt holds only the plain lines, and its line 8 drops the trailing spaces of the original's last echo. Without a defined comparison target, a byte comparison fails and any looser comparison is undefined.
+PROPOSAL: Define the comparison target as the rendered output of the original plain echo lines 21-28, with trailing whitespace ignored. State that the coloured copy and the unconditional neofetch are not kept, since neofetch stays available through the optional information argument.
 
 ## Sources
 
