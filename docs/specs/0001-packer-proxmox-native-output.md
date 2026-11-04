@@ -408,7 +408,7 @@ fast local iteration. Same generic-image provisioners, so it no longer bakes ide
 Both builders start from the same upstream Ubuntu release and share provisioners. Their starting
 disks differ: the Proxmox bootstrap preinstalls the guest agent, clears machine-id and defaults to
 32G, while QEMU boots the upstream image with a 10G disk. Local QEMU checks exercise shared image
-provisioning; they do not establish native-builder correctness. Spec 0002 must test both paths.
+provisioning; they do not establish native-builder correctness. This feature tests both Ubuntu amd64 paths; spec 0002 covers the wider OS/macOS matrix.
 
 ### Provisioning changes (identity removal)
 
@@ -581,8 +581,10 @@ configured timezone. Its exact managed command uses `apt-get` with
 `DEBIAN_FRONTEND=noninteractive` and explicit dpkg `--force-confdef`/`--force-confold` handling, so
 modified configuration files cannot leave the job waiting for input. It updates APT metadata and
 upgrades available packages, not only security packages. Native Ubuntu package configuration provides the scheduler, and its enabled state must
-survive into each fresh instance. Repeated provisioning creates one managed job. This scope adds no
-automatic reboot policy.
+survive into each fresh instance. Repeated provisioning creates one managed job. The managed command waits or retries for APT lists and dpkg locks within a bounded five-minute
+budget, then returns a visible failure if contention persists. Keep Ubuntu's existing apt-daily and
+unattended-upgrades timers; coexistence must be tested rather than assuming midnight is idle.
+This scope adds no automatic reboot policy.
 
 `restricted_ssh_security_profile` supplies a retained managed OpenSSH configuration: password and
 keyboard-interactive login disabled, public-key authentication enabled, and root SSH login disabled.
@@ -593,11 +595,17 @@ operator configuration change. Verify the actual include precedence with `sshd -
 existing main-file settings, rather than relying only on the filename.
 The current PDS function only rewrites a few default lines with sed; the dependent PDS repair must
 make the intended effective settings reliable and repeatable without duplicating the logic in builders.
+The helper writes and validates the configuration with `sshd -t` but does not reload the daemon.
+Ordinary-host documentation provides an explicit distribution-appropriate reload step after the
+operator verifies key access; the image build never invokes that step. Check both the no-reload
+helper contract and the ordinary-host validation/reload procedure.
 Verify configuration syntax and effective settings, including after clone-time cloud-init runs.
 
 Keep temporary Packer access usable until provisioning and sealing finish. The QEMU path initially
-uses password access, while the native path uses a temporary key. Apply the final policy without any
-sshd reload/restart before sealing, then remove the temporary build password/key and generated policy during
+uses password access, while the native path uses a temporary key. Finish package operations capable of restarting services before installing the final policy.
+Record ssh.service's MainPID and activation timestamp immediately before policy installation and
+again before sealing; require them to match, and inspect the guest journal for intervening restarts.
+Apply the policy without sshd reload/restart during that interval, then remove the temporary build password/key and generated policy during
 sealing. The retained PDS policy must survive cleanup and fresh cloud-init initialization. A finished
 instance accepts its injected non-root user's key, rejects password login and rejects root SSH.
 This is separate from resetting SSH host keys and machine identity.
@@ -688,7 +696,7 @@ scope is verified and merged by the owner. Feature 0002 remains open for its wid
 | AC-11 | Install the built PDS package in disposable Ubuntu and run its strict-load, missing-library, Zi/preset, MOTD, sudoers and standalone-path tests. Add real selected-installer/new-user coverage; existing Zi stubs do not prove actual downloads or plugin startup. |
 | AC-12 | Execute documented Make targets and PR checks, including negative artifact fixtures; retain per-output build/offline/boot results and explicit skips. For Proxmox, snapshot original guest configurations/power states, reserve unused owned IDs, and audit ownership-limited cleanup afterward. |
 | AC-13 | Inspect the built package for all three banner files and compare EdgeForge with the preserved legacy banner. Exercise each preset and custom-file usage in disposable Ubuntu, including standalone-checkout resolution, repeated application, preset switching, unknown names and missing files; verify unchanged operator scripts and no changes after invalid selection. Check the configured banner in both image outputs. |
-| AC-14 | Apply the PDS helpers twice in disposable Ubuntu; require one midnight job, scheduler enablement, sshd syntax/effective settings and successful non-interactive updates, including an upgrade of a deliberately modified conffile. In a fresh instance of each output, execute the installed job's exact command under cron PATH with stdin /dev/null and require exit 0. Build logs must show no sshd reload/restart before sealing. For one owned instance per output, supply ssh_pwauth: true, a temporary known non-root password and a temporary root key so permissive SSH settings would admit the negative probes; require non-root key success, password/keyboard-interactive/root-key refusal, only publickey offered, and matching sshd -T values. Redact/discard test credentials and retain per-output results. Inspect the retained policy offline and check the scheduler/baseline in both fresh instances of each output. |
+| AC-14 | Apply the PDS helpers twice in disposable Ubuntu; require one midnight job, scheduler enablement, sshd syntax/effective settings and successful non-interactive updates, including an upgrade of a deliberately modified conffile. Exercise held APT-list and dpkg locks, requiring bounded recovery and visible timeout failure. In a fresh instance of each output, execute the installed job's exact command under cron PATH with stdin /dev/null and require exit 0. Guest-side ssh.service PID/activation timestamp and journal evidence must establish no reload/restart between policy installation and sealing; a quiet Packer log is insufficient. For one owned instance per output, supply ssh_pwauth: true, disable_root: false, a temporary known non-root password and a temporary root key. Add a lower-precedence 10-test-permissive.conf enabling password, keyboard-interactive and root login; require the baked 00-pds-security.conf settings to win. Use a permissive control in the owned fixture to establish the credentials and authentication methods work without the PDS restriction, then restore the baseline and require non-root key success, password/keyboard-interactive/root-key refusal at authentication, only publickey offered, and matching sshd -T values. Root refusal must be authentication denial, not a cloud-init forced-command banner. Redact/discard test credentials and retain per-output results. Inspect the retained policy offline and check the scheduler/baseline in both fresh instances of each output. |
 
 ## Tasks
 
@@ -746,6 +754,7 @@ None.
 | 2026-11-04 | R-11 | implementation | `1dcd2c59a5a01cc2301f63e41ab1516cbe6d88f1` | claude-opus-5-5 | procedural | No implementation findings; AC-02 and AC-07 met, remaining criteria not independently verified. |
 | 2026-11-04 | R-12 | spec | `4bf428f9cb2e4e4ce20eb8e6c5619af23d0a3209+dirty` | claude-opus-5-5 | procedural | Diagnostic of expanded PDS scope; six findings, no acceptance. |
 | 2026-11-04 | R-13 | spec | `7b818c9e3e98d402d3b72710c6542bdb5315de9d` | claude-opus-5-5 | procedural | Six non-blocking findings about update execution, SSH proof, shared Krew and package lifecycle. |
+| 2026-11-04 | R-14 | spec | `fa4b1b5d446447ac37c4990ad81a9b08f9865446` | claude-opus-5-5 | procedural | Five non-blocking findings about control probes, reload evidence, APT locks and a stale harness reference. |
 
 ### R-1
 
@@ -1437,6 +1446,43 @@ SEVERITY: nit
 WHERE: Design, File-based MOTD presets; Test Plan AC-13
 EVIDENCE: The Test Plan asks to "compare EdgeForge with the preserved legacy banner". The original block (motd-preset-drafts/edgeforge-original-block.txt:21-28 and 39-49) prints a plain banner, then a coloured copy, then runs neofetch, and it replaces other MOTD scripts. The draft edgeforge.txt holds only the plain lines, and its line 8 drops the trailing spaces of the original's last echo. Without a defined comparison target, a byte comparison fails and any looser comparison is undefined.
 PROPOSAL: Define the comparison target as the rendered output of the original plain echo lines 21-28, with trailing whitespace ignored. State that the coloured copy and the unconditional neofetch are not kept, since neofetch stays available through the optional information argument.
+
+### R-14
+
+FINDING: F-01
+KIND: judgement
+SEVERITY: should-fix
+WHERE: Test Plan AC-14; Design, Baked update and SSH policy
+EVIDENCE: The repaired AC-14 proof says that with `ssh_pwauth: true`, a temporary known non-root password and a temporary root key, "permissive SSH settings would admit the negative probes". That holds for password login, which the 50-cloud-init.conf drop-in written for `ssh_pwauth: true` would enable without 00-pds-security.conf (test_sealing.sh:14-19 reproduces this). It does not hold for the other two probes. Ubuntu's cloud-init default `disable_root: true` installs root's injected key with a forced command that prints "Please login as the user ..." and exits. A root-key attempt then fails even under the distribution's `PermitRootLogin prohibit-password`, unless the probe tells authentication refusal apart from the forced-command exit. Ubuntu's main sshd_config also already sets `KbdInteractiveAuthentication no`, and no deployment input in the plan enables it. So the keyboard-interactive probe is refused with or without the baked file, and "only publickey offered" cannot show it either. These are inferences from Ubuntu and cloud-init defaults, not observed in this review. The current tree sets no `disable_root` anywhere (Grep for disable_root found no match under packer/).
+PROPOSAL: In the owned negative-probe instance, set `disable_root: false` and require root-key refusal at authentication ("Permission denied", no forced-command banner). To prove precedence directly, add a temporary lower-precedence test drop-in, for example `10-test-permissive.conf` setting PasswordAuthentication, KbdInteractiveAuthentication and PermitRootLogin to yes, and require refusal and `sshd -T` values to stay unchanged.
+
+FINDING: F-02
+KIND: judgement
+SEVERITY: nit
+WHERE: Design, Baked update and SSH policy; Scope (PDS remains independently usable for ordinary host setup)
+EVIDENCE: Design line 600 requires "Apply the final policy without any sshd reload/restart before sealing", and line 594-595 requires the PDS repair to "make the intended effective settings reliable". OpenSSH only applies new configuration when it starts or is reloaded. The current function edits the file and prints "Restricted SSH security profile will be applied on next login." (pds-source/bash/common/admin/sysadmin.sh:140-145), which is wrong for a running daemon. The design does not say whether the repaired `restricted_ssh_security_profile` reloads sshd. If it reloads, it breaks the build-access constraint. If it never reloads, the policy is not in effect on an ordinary host until a reload or restart, and no criterion covers that ordinary-host path.
+PROPOSAL: State that the function writes and validates the drop-in (`sshd -t`) without reloading, and that ordinary-host use gets an explicit, documented reload step or opt-in flag that the image build never uses.
+
+FINDING: F-03
+KIND: judgement
+SEVERITY: nit
+WHERE: Test Plan AC-14
+EVIDENCE: The proof says "Build logs must show no sshd reload/restart before sealing." The Packer log records provisioner output. It does not reliably record service restarts triggered by package maintainer scripts or restart helpers during the PDS step's APT installs (for example GitHub CLI and kubectl through install_gh.sh:24-25). If no restart line appears in the log, that does not show no restart happened.
+PROPOSAL: Use guest-side evidence. Record ssh.service's MainPID and ActiveEnterTimestamp (or its journal entries) right after the policy is written and again just before sealing, and require them to match.
+
+FINDING: F-04
+KIND: judgement
+SEVERITY: nit
+WHERE: Design, Baked update and SSH policy; AC-14
+EVIDENCE: The managed job runs `apt-get` at 00:00 with noninteractive conffile handling. The design does not say how it coexists with Ubuntu's own APT timers in the cloud image. `apt-daily.timer` has a 12-hour randomized delay, so it can hold the APT lists or dpkg lock at midnight. By default `apt-get` fails at once on a held lock. The single cron-environment run in the Test Plan would not reveal this intermittent failure. This is inferred from Ubuntu defaults and was not observed here.
+PROPOSAL: Make the managed command wait for or retry APT/dpkg locks (for example a bounded `DPkg::Lock::Timeout`). State that Ubuntu's apt-daily/unattended-upgrades timers remain alongside the PDS job, or say how they are handled.
+
+FINDING: F-05
+KIND: factual
+SEVERITY: nit
+WHERE: Design, `source "qemu" "ubuntu"` (portable local artifact)
+EVIDENCE: Line 411 says "Local QEMU checks exercise shared image provisioning; they do not establish native-builder correctness. Spec 0002 must test both paths." The revised Scope (lines 258-259, 266-267) and Bounded image checks (lines 639-648) require real builds, offline inspection and two fresh boots of both outputs in this feature. They also say feature 0002's absence "cannot excuse missing checks for this Ubuntu amd64 delivery".
+PROPOSAL: Reword line 411 so this feature tests both Ubuntu amd64 paths, and feature 0002 covers only the wider matrix.
 
 ## Sources
 
