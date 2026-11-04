@@ -1,6 +1,6 @@
 ---
-status: planned
-status_description: "Owner approved the reviewed default/custom recipe contract; entering implementation with no merge permission."
+status: in-progress
+status_description: "Implementing the approved PDS package and recipe tasks; no merges or releases authorized."
 issue: https://github.com/vhco-pro/builders/issues/1
 goal: "Build customizable Ubuntu images with PDS bootstrap and opinionated update/SSH defaults, as optional Proxmox templates or standalone qcow2/raw disks."
 covers:
