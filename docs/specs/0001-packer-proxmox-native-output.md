@@ -17,7 +17,8 @@ branch: feat/0001-packer-proxmox-native
 
 # Plan: Ubuntu baseline images with PDS, updates and restricted SSH
 
-Build reusable Ubuntu images with PDS bootstrap, nightly automatic updates and restricted SSH.
+Build reusable Ubuntu images with a PDS default recipe selecting nightly updates and restricted SSH;
+operators may select a custom recipe with different choices.
 Select a standalone disk or optional native Proxmox template; supply deployment identity through
 cloud-init.
 
@@ -424,7 +425,7 @@ moves to cloud-init at clone time:
 - **Remove** the generated cloud-init `netplan`; clone-time cloud-init owns addressing. The selected
   design uses DHCP and leaves no builder-written fallback network file.
 - **Remove** build-time creation of the fixed `sysadmin` user and hardcoded `SSH_PUBLIC_KEY`.
-  Users and keys are injected by cloud-init at clone time. Generic SSH restrictions are supplied by
+  Users and keys are injected by cloud-init at clone time. When selected by the recipe, generic SSH restrictions are supplied by
   PDS at build time and retained in the finished image.
 - **Reset cloud-init state before sealing** so every clone re-runs cloud-init as if first-booted
   (the classic template gotcha; otherwise clones skip clone-time init):
@@ -493,8 +494,12 @@ Keep the default function sequence in `packer/ubuntu/recipes/default.sh`. Packer
 at build time, without changing the default recipe or PDS. Builders uploads the selected recipe,
 loads the installed PDS library, and runs that recipe as trusted image-build code; it never evaluates
 a string of function names. Missing recipe files and failed selected calls stop the build.
-A small example shows a custom selection omitting the update and SSH-policy calls. No profile
+The committed `recipes/custom.example.sh` selects Zi/configuration and a MOTD while omitting the
+update and SSH-policy calls. No profile
 framework or duplicated policy implementation is needed.
+
+Builders exports `BUILD_MOTD_PRESET` and `BUILD_KUBECTL_CHANNEL` to the selected recipe. The default
+recipe consumes them; a custom recipe explicitly controls whether to use or ignore those inputs.
 
 Skipping a policy call means builders does not apply that PDS policy. It does not reverse policy
 inherited from the Ubuntu source or a customized parent image, and does not itself enable password
@@ -555,7 +560,7 @@ configuration is not automatically regenerated merely because the PDS library pa
 | kubectl, alias and completion | PDS supplies system tooling and shared shell configuration, usable by a new deployment user rather than only the build account. The version/channel input is explicit. |
 | Krew, stern, view-secret and neat | Preserve Krew and all three plugins for a fresh deployment user through supported PDS image/user setup. Failed downloads cannot be logged as successful provisioning; no empty plugin selection satisfies this scope. |
 | Hostname, users, SSH keys, login shell, sudo and network identity | Clone-time cloud-init inputs. A documented example selects Zsh and sudo for the deployed user; no hardcoded `sysadmin` or personal key is retained. |
-| Automatic updates and restrictive SSH policy | PDS configures the nightly midnight update job and a retained public-key SSH baseline with password and root logins disabled. Both are baked into each image. |
+| Automatic updates and restrictive SSH policy | PDS configures the nightly midnight update job and a retained public-key SSH baseline with password and root logins disabled. The default recipe bakes both into each output; custom recipes may omit those calls. |
 | Manual GRUB rewrites | The official cloud image provides its boot chain. Retain the boot test, not an unverified architecture-specific reinstall command. Firmware modes beyond the tested configuration remain unclaimed. |
 
 The PDS candidate's user-local kubectl/Krew setup must be corrected upstream, keeping its ordinary
@@ -637,7 +642,9 @@ again before sealing; require them to match, and inspect the guest journal for i
 Apply the policy without sshd reload/restart during that interval, then remove the temporary build password/key and generated policy during
 sealing. The retained PDS policy must survive cleanup and fresh cloud-init initialization. A finished
 instance accepts its injected non-root user's key, rejects password login and rejects root SSH.
-This is separate from resetting SSH host keys and machine identity.
+Any recipe selecting `restricted_ssh_security_profile` must call it last, after installers capable
+of restarting services. The guest PID/activation check applies whenever that policy is selected,
+including in a custom recipe. This is separate from resetting SSH host keys and machine identity.
 
 ### File-based MOTD presets
 
@@ -728,7 +735,7 @@ scope is verified and merged by the owner. Feature 0002 remains open for its wid
 | AC-12 | Execute documented Make targets and PR checks, including negative artifact fixtures; retain per-output build/offline/boot results and explicit skips. For Proxmox, snapshot original guest configurations/power states, reserve unused owned IDs, and audit ownership-limited cleanup afterward. |
 | AC-13 | Inspect the built package for all three banner files and compare EdgeForge with the preserved legacy banner. Exercise each preset and custom-file usage in disposable Ubuntu, including standalone-checkout resolution, repeated application, preset switching, unknown names and missing files; verify unchanged operator scripts and no changes after invalid selection. Check the configured banner in both image outputs. |
 | AC-14 | Apply the PDS helpers twice in disposable Ubuntu; require one midnight job, scheduler enablement, sshd syntax/effective settings and successful non-interactive updates, including an upgrade of a deliberately modified conffile. Exercise held APT-list and dpkg locks, requiring bounded recovery and visible timeout failure. In a fresh instance of each output, execute the installed job's exact command under cron PATH with stdin /dev/null and require exit 0. Guest-side ssh.service PID/activation timestamp and journal evidence must establish no reload/restart between policy installation and sealing; a quiet Packer log is insufficient. For one owned instance per output, supply ssh_pwauth: true, disable_root: false, a temporary known non-root password and a temporary root key. Add a lower-precedence 10-test-permissive.conf enabling password, keyboard-interactive and root login; require the baked 00-pds-security.conf settings to win. Use a permissive control in the owned fixture to establish the credentials and authentication methods work without the PDS restriction, then restore the baseline and require non-root key success, password/keyboard-interactive/root-key refusal at authentication, only publickey offered, and matching sshd -T values. Root refusal must be authentication denial, not a cloud-init forced-command banner. Redact/discard test credentials and retain per-output results. Inspect the retained policy offline and check the scheduler/baseline in both fresh instances of each output. |
-| AC-15 | Validate default and custom recipe inputs for both builders; reject an unreadable/missing recipe before building. Exercise the real shared provisioner with the default and an explicit custom selection, requiring selected function order and propagated failure. Build clean default and custom artifacts, verify the latter has no PDS-managed update/SSH policy when those calls are omitted, and verify both retain credential/identity cleanup. A skipped call does not promise to undo vendor/inherited policy. |
+| AC-15 | Validate inputs for both builders and reject an unreadable/missing recipe before building. Exercise the shared provisioner with the default and committed recipes/custom.example.sh; check exported inputs, selected call order and propagated failure. Build that custom example for both native and portable outputs from clean bases. Inspect each sealed disk for absent 00-pds-security.conf and PDS-managed update job, present example selections, and AC-06 credential/identity cleanup. Boot two fresh instances of each custom output with independent identities and verify AC-05 separation and the selected tools/MOTD. No custom-image assertion requires enabling password login or undoing vendor/inherited policy. |
 
 ## Tasks
 
@@ -788,6 +795,7 @@ None.
 | 2026-11-04 | R-13 | spec | `7b818c9e3e98d402d3b72710c6542bdb5315de9d` | claude-opus-5-5 | procedural | Six non-blocking findings about update execution, SSH proof, shared Krew and package lifecycle. |
 | 2026-11-04 | R-14 | spec | `fa4b1b5d446447ac37c4990ad81a9b08f9865446` | claude-opus-5-5 | procedural | Five non-blocking findings about control probes, reload evidence, APT locks and a stale harness reference. |
 | 2026-11-04 | R-15 | spec | `eb38755c4218f7d315a32951f53cf589115630e0` | claude-opus-5-5 | procedural | Two implementation/testing nits; no blocking findings. |
+| 2026-11-05 | R-16 | spec | `59928bc110dedec4c6f91cbbd7c18c384cee2f65` | claude-opus-5-5 | procedural | Four non-blocking consistency/proof findings for custom recipe behavior. |
 
 ### R-1
 
@@ -1532,6 +1540,38 @@ SEVERITY: nit
 WHERE: Test Plan AC-14 (cron-environment run)
 EVIDENCE: The proof runs "the installed job's exact command under cron PATH with stdin /dev/null and require exit 0". The existing job lives in /etc/crontab (pds-source/bash/common/admin/sysadmin.sh:8-9), and cron runs those entries with /bin/sh (dash on Ubuntu) and a minimal environment. The new managed command adds a bounded lock wait/retry (Design lines 584 to 585), so it is no longer the simple `&&` chain that dash runs safely. If the command is run from a root Bash session with the provisioning or login environment still set, Bash-only syntax or inherited variables such as DEBIAN_FRONTEND can make it pass, even though the real 00:00 run would fail. I inferred this from cron's defaults and the current helper. I executed nothing.
 PROPOSAL: Require the fresh-instance run to use /bin/sh -c with a cleared environment that matches cron's (for example env -i with cron's PATH, HOME, SHELL and LOGNAME). Alternatively, require evidence that cron itself ran the managed entry and logged exit 0.
+
+### R-16
+
+```text
+FINDING: F-01
+KIND: factual
+SEVERITY: should-fix
+WHERE: Design (Provisioning changes; Bootstrap preservation map)
+EVIDENCE: docs/specs/0001-packer-proxmox-native-output.md:558 says the nightly update job and restricted SSH baseline "are baked into each image", and :427-428 says "Generic SSH restrictions are supplied by PDS at build time and retained in the finished image" without qualification. Both are normative Design text and contradict :488-489 ("They are not a mandatory policy for every custom image"), :605-607 and AC-15, which let a custom recipe omit those calls. The summary at :20 also states the policies unconditionally.
+PROPOSAL: Qualify :558 and :427-428 as default-recipe behavior, for example "the default recipe bakes both into each output; a custom recipe may omit them", and add the same qualifier to the summary line.
+
+FINDING: F-02
+KIND: judgement
+SEVERITY: should-fix
+WHERE: Acceptance Criteria AC-15, Test Plan AC-15
+EVIDENCE: AC-15 (:711) requires custom recipe selection "for either output", but the proof (:731) says only "Build clean default and custom artifacts". It does not say that a custom artifact is built for each output, which custom recipe is used, or which observations show that the PDS policy is absent. The Design at :496 promises a committed example that omits the update and SSH calls, but the proof does not tie the tested custom selection to that example. It is also unclear whether custom artifacts need the fresh boots in AC-05/AC-06 or only offline inspection.
+PROPOSAL: Make the proof build the committed example custom recipe on both outputs. Inspect each sealed disk offline and require: no 00-pds-security.conf, no PDS-managed update job, the example's own selections present, and the AC-06 credential and identity checks passing. State whether this needs a fresh boot or offline inspection is enough.
+
+FINDING: F-03
+KIND: judgement
+SEVERITY: nit
+WHERE: Design (File-based MOTD presets; Bootstrap preservation map), AC-13
+EVIDENCE: :661 and AC-13 (:707) keep "an explicit configurable MOTD-preset input", and :555 keeps an explicit kubectl version/channel input. Under :491-495, the recipe file is now the selection mechanism. The spec does not say how these Packer inputs reach the recipe, or whether a custom recipe may ignore them. That leaves room for an input that silently has no effect under a custom recipe.
+PROPOSAL: State that builders exports these inputs to the selected recipe, that the default recipe consumes them, and that a custom recipe may use or ignore them. Alternatively, state that preset selection lives only in the recipe and reword AC-13 to match.
+
+FINDING: F-04
+KIND: judgement
+SEVERITY: nit
+WHERE: Design (Baked update and SSH policy)
+EVIDENCE: :633-637 requires package operations that can restart services to finish before the SSH policy is installed, and requires no sshd restart before sealing. Under the recipe model, call order is set in the recipe file. The spec makes default.sh responsible for this, but does not say whether a custom recipe that selects restricted_ssh_security_profile before later installers carries the same ordering duty or gets a builder check. On the QEMU password path, an sshd restart after the policy is applied would cut Packer's build access.
+PROPOSAL: Add one sentence saying that any recipe selecting the SSH policy must call it last, after service-restarting installers, and that the PID and activation check applies whenever that call is selected, not only to the default recipe.
+```
 
 ## Sources
 
