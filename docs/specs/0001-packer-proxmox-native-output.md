@@ -1,6 +1,6 @@
 ---
 status: draft
-status_description: "Combined image baseline includes PDS bootstrap, nightly updates and restricted SSH; renewed exact-commit review and acceptance remain pending."
+status_description: "Combined baseline reviewed with two non-blocking implementation notes; owner acceptance is pending and integration is not implemented."
 issue: https://github.com/vhco-pro/builders/issues/1
 goal: "Build reusable Ubuntu images with PDS bootstrap, automatic updates and restricted SSH as optional Proxmox templates or standalone qcow2/raw disks."
 covers:
@@ -755,6 +755,7 @@ None.
 | 2026-11-04 | R-12 | spec | `4bf428f9cb2e4e4ce20eb8e6c5619af23d0a3209+dirty` | claude-opus-5-5 | procedural | Diagnostic of expanded PDS scope; six findings, no acceptance. |
 | 2026-11-04 | R-13 | spec | `7b818c9e3e98d402d3b72710c6542bdb5315de9d` | claude-opus-5-5 | procedural | Six non-blocking findings about update execution, SSH proof, shared Krew and package lifecycle. |
 | 2026-11-04 | R-14 | spec | `fa4b1b5d446447ac37c4990ad81a9b08f9865446` | claude-opus-5-5 | procedural | Five non-blocking findings about control probes, reload evidence, APT locks and a stale harness reference. |
+| 2026-11-04 | R-15 | spec | `eb38755c4218f7d315a32951f53cf589115630e0` | claude-opus-5-5 | procedural | Two implementation/testing nits; no blocking findings. |
 
 ### R-1
 
@@ -1483,6 +1484,22 @@ SEVERITY: nit
 WHERE: Design, `source "qemu" "ubuntu"` (portable local artifact)
 EVIDENCE: Line 411 says "Local QEMU checks exercise shared image provisioning; they do not establish native-builder correctness. Spec 0002 must test both paths." The revised Scope (lines 258-259, 266-267) and Bounded image checks (lines 639-648) require real builds, offline inspection and two fresh boots of both outputs in this feature. They also say feature 0002's absence "cannot excuse missing checks for this Ubuntu amd64 delivery".
 PROPOSAL: Reword line 411 so this feature tests both Ubuntu amd64 paths, and feature 0002 covers only the wider matrix.
+
+### R-15
+
+FINDING: F-01
+KIND: judgement
+SEVERITY: nit
+WHERE: Design, Baked update and SSH policy (build-access paragraph); Test Plan AC-14
+EVIDENCE: Design line 605 says "Finish package operations capable of restarting services before installing the final policy". Lines 606 to 607 limit the restart evidence to the time between "immediately before policy installation" and "again before sealing". The sealing step, which the design keeps as a separate final script (line 481), still runs package operations after that point. packer/ubuntu/scripts/seal-image.sh:24 runs `apt-get -y autoremove`, and its maintainer scripts and APT hooks can restart services. So the spec's own ordering rule is broken by an existing step, and its PID window ends before that step runs. seal-image.sh:28 also truncates every regular file under /var/log, which includes persistent journal files under /var/log/journal. Journal evidence for line 607 must therefore be captured before sealing truncates it, and the spec does not say so. I did not observe a restart. This is inferred from the current sealer source.
+PROPOSAL: Either move autoremove ahead of policy installation, or extend the PID/activation comparison to the end of sealing, just before shutdown. Also state that the guest journal evidence is exported before seal-image.sh truncates /var/log.
+
+FINDING: F-02
+KIND: judgement
+SEVERITY: nit
+WHERE: Test Plan AC-14 (cron-environment run)
+EVIDENCE: The proof runs "the installed job's exact command under cron PATH with stdin /dev/null and require exit 0". The existing job lives in /etc/crontab (pds-source/bash/common/admin/sysadmin.sh:8-9), and cron runs those entries with /bin/sh (dash on Ubuntu) and a minimal environment. The new managed command adds a bounded lock wait/retry (Design lines 584 to 585), so it is no longer the simple `&&` chain that dash runs safely. If the command is run from a root Bash session with the provisioning or login environment still set, Bash-only syntax or inherited variables such as DEBIAN_FRONTEND can make it pass, even though the real 00:00 run would fail. I inferred this from cron's defaults and the current helper. I executed nothing.
+PROPOSAL: Require the fresh-instance run to use /bin/sh -c with a cleared environment that matches cron's (for example env -i with cron's PATH, HOME, SHELL and LOGNAME). Alternatively, require evidence that cron itself ran the managed entry and logged exit 0.
 
 ## Sources
 
