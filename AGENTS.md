@@ -30,7 +30,7 @@ Feature documents: docs/specs/
   The normal local checks must not perform remote VM mutations.
 - Prepare base images off-node. The node import uses native Proxmox commands over SSH;
   do not install Packer or libguestfs on the hypervisor. Keep replacement-machine recovery
-  in `packer/ubuntu/recovery.md` aligned with the tested scripts.
+  in `docs/ubuntu/recovery.md` aligned with the tested scripts.
 - Preserve unrelated work, staged changes and existing worktrees. No reset, stash or cleanup
   to make a review target clean. A dirty-tree diagnostic review is not release acceptance.
 - Commits, pushes, PR writes, merges and releases need explicit owner approval. Permission to

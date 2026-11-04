@@ -1,6 +1,6 @@
 ---
-status: draft
-status_description: "Migrated for owner review; no current vh-adlc acceptance or completion is claimed."
+status: superseded
+status_description: "Delivery scope folded into feature 0001 and PR #4; no PDS implementation or issue completion is claimed."
 issue: https://github.com/vhco-pro/builders/issues/3
 goal: "Configure builder images through selected functions from an exact version of the standalone PDS package."
 covers:
@@ -8,11 +8,22 @@ covers:
   - readme.md
 ---
 
-# Plan: Move provisioning into PDS ("select and apply")
+# Superseded: Move provisioning into PDS
 
 Configure builder images through selected functions from an exact version of the standalone PDS package.
 
 ## Context
+
+The owner selected one builders delivery for PDS bootstrap and the image outputs on 2026-11-04.
+The current normative scope, bootstrap mapping and verification plan are in
+[feature 0001](0001-packer-proxmox-native-output.md#pds-provisioning-and-package-identity), delivered
+through PR #4. The body below preserves the earlier proposal as history; its assumed entrypoints,
+function list and verification claims must not be used as current acceptance.
+
+The dependent PDS repository still has its own changes and review. This document's `superseded`
+state does not mean PDS integration is implemented or issue #3 is closed. The local transition check
+returned `vh-adlc gate superseded: pass (rules 1, docs 0e52f51)`.
+
 
 Migration: this file now uses the pinned vh-adlc format in its existing location. Earlier checklist ticks are historical and are not imported as current acceptance. No review or owner-acceptance record has been invented.
 

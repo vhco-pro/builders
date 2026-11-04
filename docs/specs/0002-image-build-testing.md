@@ -16,6 +16,11 @@ Verify image builds through reusable local and CI test layers with explicit runt
 
 ## Context
 
+Feature 0001 now owns the bounded Ubuntu amd64 package/build/offline/fresh-boot checks required by
+PR #4. This draft retains the wider multi-OS/macOS harness and later runner topology. Its status
+claims do not establish that the wider matrix is implemented or that the bounded checks have passed.
+
+
 Migration: this file now uses the pinned vh-adlc format in its existing location. Earlier checklist ticks are historical and are not imported as current acceptance. No review or owner-acceptance record has been invented.
 
 The design below is imported from the earlier draft and has not gained review or acceptance through migration. Current implementation status must be checked before starting it.

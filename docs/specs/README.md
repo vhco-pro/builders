@@ -11,9 +11,12 @@ from the migration. The current drafts must not be committed or published before
 
 | Issue | Feature | Status |
 | --- | --- | --- |
-| #1 | [Packer outputs](0001-packer-proxmox-native-output.md) | draft |
+| #1 | [Ubuntu images and PDS bootstrap](0001-packer-proxmox-native-output.md) | draft |
 | #2 | [Image test harness](0002-image-build-testing.md) | draft |
-| #3 | [Standalone PDS integration](0003-pds-provisioning-migration.md) | draft |
+| #3 | [PDS delivery folded into #1](0003-pds-provisioning-migration.md) | superseded |
+
+Issue #3 remains open until the integrated bootstrap is verified and merged. Feature #2 keeps its
+wider multi-OS/macOS scope; the bounded Ubuntu checks belong to #1.
 
 Start with `vh-adlc find --issue <n>` or `vh-adlc find --slug <slug>`, then follow the procedure named by `vh-adlc next`. Run `knowledge` and read
 the resolved pages before editing. `lint` checks document shape; `fresh` checks review currency; a

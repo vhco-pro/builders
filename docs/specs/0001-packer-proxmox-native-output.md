@@ -1,18 +1,24 @@
 ---
 status: draft
-status_description: "Owner authorized commits and PR update; specification review is pending and feature completion is not claimed."
+status_description: "Combined image baseline includes PDS bootstrap, nightly updates and restricted SSH; renewed exact-commit review and acceptance remain pending."
 issue: https://github.com/vhco-pro/builders/issues/1
-goal: "Build generic Ubuntu images as a native Proxmox template or portable qcow2/raw output selected at invocation."
+goal: "Build usable, generic Ubuntu images with shared PDS bootstrap as an optional native Proxmox template or standalone qcow2/raw disk."
 covers:
   - packer/ubuntu/
   - Makefile
   - readme.md
+  - packer/readme.md
+  - docs/ubuntu/
+  - docs/development.md
+  - .github/workflows/
+  - renovate.json5
 branch: feat/0001-packer-proxmox-native
 ---
 
-# Plan: Packer: Proxmox-native builder with selectable output formats
+# Plan: Generic Ubuntu images with PDS bootstrap
 
-Build generic Ubuntu images as a native Proxmox template or portable qcow2/raw output selected at invocation.
+Build usable Ubuntu images with a shared PDS bootstrap, selecting a standalone disk or an optional
+native Proxmox template at invocation. Keep deployment identity in cloud-init.
 
 ## Context
 
@@ -181,6 +187,17 @@ documentation nits were corrected here; it remains a dirty diagnostic, not curre
 
 ### Settled decisions and earlier review notes
 
+Automatic updates and restricted SSH are core baked-image requirements, confirmed by the owner on
+2026-11-04. Keep the earlier nightly midnight update policy and require public-key SSH with password
+and root logins disabled. Deployment supplies machine identity and authorized users/keys; it does
+not have to recreate this baseline policy.
+
+
+The owner selected Zi's existing per-user first-login plugin downloads on 2026-11-04, preserving
+the current configuration instead of introducing image-specific prefetching and cache maintenance.
+The bootstrap guide must state the first-login network requirement and plugin-version variability.
+
+
 Off-node bootstrap is the owner's decision of 2026-11-04.
 The Bash/jq adapter follows the request to avoid unnecessary Python and continue after that
 recommendation. These implementation choices do not establish formal spec or feature acceptance.
@@ -189,23 +206,66 @@ The earlier R-1 F-02 assumed jq would need an extra installation. The retained `
 using jq to parse real cloud-init status in the tested noble/amd64 build. The historic review is retained unchanged below. This draft also makes AC-06's
 build-access exception explicit, so the current criterion requires a new review.
 
+### Combined PR preparation (2026-11-04)
+
+The owner selected one builders PR for the native/portable outputs, the PDS provisioning replacement,
+its required image checks and the README restructure. The dependent shared-library work stays in
+`michielvha/PDS`. PR #4 remains open; merging either repository requires the owner's final review.
+The wider multi-OS/macOS harness stays in feature 0002.
+
+At preparation time, `scripts/install.sh:11-13` only invokes four native cloud-init modules and
+`ubuntu.pkr.hcl:88-109` does not install PDS. The earlier
+`origin/main:packer/ubuntu/scripts/install.sh` supplied MOTD at lines 65-115, Zi/shell setup at 133-137, SSH restrictions at 151, user/sudo setup at 153-169, nightly updates at 183 and
+kubectl at 190, while also editing bootloaders. GitHub CLI was in
+`origin/main:packer/ubuntu/cloud-init/user-data:42`. This revised scope replaces the useful shared
+bootstrap without restoring baked users, keys or network identity. Earlier statements that PDS was a separate delivery describe the prior scope.
+
+The existing candidate at `/home/m/code/PDS-image-provisioning`, based on PDS `04c8dee` with
+uncommitted changes, supplies packaged shell assets, unattended loading and MOTD. Its package
+`pds_1.0.0_all.deb` has SHA-256
+`378a2ef2d1277c54fd4524abfe160d0648cd501e98d7cd26b716de240a495991`.
+The existing package suite passed nine tests against a read-only source snapshot in a disposable
+network-isolated container. Those tests use a Zi stub and do not establish real plugin installation,
+GitHub CLI/kubectl installation or a bootable PDS image. Preparation evidence is retained privately
+under `/tmp/builders-pds-prep-20261104/`.
+
+`gh api repos/michielvha/PDS/releases/latest` reported release `0.19.0` and asset
+`pds_0.19.0_all.deb`; `gh api repos/michielvha/PDS/commits/main` returned `04c8dee`.
+The local `1.0.0` label is a placeholder, identified here by the package checksum; it is not a
+published replacement version or a prediction of the CI-assigned release number. The PDS pull-request
+list contained only unrelated Cloudflare-host PR #34, which remains outside this work.
+
+Two inspected library gaps affect image use. `bash/debian/software/install_kubectl.sh:21-57` writes
+completion into the invoking user's home; lines 59-104 install user-local Krew/plugins and tolerate
+failures. `bash/common/shell/zsh.sh:16` clones Zi without a revision pin, while the packaged zshrc
+selects plugins that may download on first shell startup. A passing package loader test does not
+prove that a newly deployed user receives functional, self-contained tooling.
+
+This is a normative scope revision. All criteria remain unchecked; earlier reviews below are history
+for their recorded targets and do not accept the combined scope. No implementation or final image
+validation is claimed by this preparation.
+
 ## Scope
 
-- One Packer template for Ubuntu that can produce **either**:
-  - a **Proxmox template** built natively via the Proxmox API (default, preferred), or
-  - a **local qcow2/raw** artifact (the legacy portable path).
-- The output format is **selected at build invocation**, not by editing the template.
-- The Proxmox path lands a **template** (not just a VM) on the PVE host, with a **cloud-init drive**
-  attached, ready for `bpg/proxmox` to clone.
-- The image is **generic/unidentified**: no baked hostname, no static IP, no baked SSH host keys,
-  fresh `machine-id` on every clone.
+- One Ubuntu Packer template with shared provisioning for a standalone qcow2/raw disk and an optional
+  native Proxmox template. Both outputs are selected explicitly with `-only`.
+- Off-node base preparation and retained-bundle recovery. Packer and libguestfs stay off Proxmox.
+- Native Ubuntu packages/settings through cloud-init, plus an exact PDS package and a readable
+  select-and-apply bootstrap for Zi/Powerlevel10k, MOTD, GitHub CLI and kubectl.
+- Automatic nightly package updates and restricted SSH policy baked through PDS into both outputs.
+- Shared configuration available to users created after sealing. No fixed admin user or key is baked in.
+- Package verification, static/local regression checks, real amd64 builds, offline inspection and two
+  independently initialized boots for each output. Test resources have recorded ownership.
+- Short READMEs linking build, bootstrap, SSH/debugging, recovery and validation procedures under docs/.
 
 Out of scope:
 
-- Terraform / `bpg/proxmox` clone blocks and per-VM init (hostname, IP, SSH keys, `edgectl` user-data).
-  That's the consumer of this template and is deliberately untouched here.
-- Completing the "move all provisioning to PDS" migration. This spec removes *identity baking* and
-  leaves the remaining provisioning as-is (or minimally adjusted); the PDS cutover is its own spec.
+- Deploying Stackweaver, production workloads or consumer Terraform configurations.
+- Merging, releasing PDS, publishing homelab articles or modifying pre-existing Proxmox guests.
+- The wider feature 0002 matrix: Apple Silicon/HVF acceptance, another OS/template and a permanent
+  self-hosted runner. Its absence cannot excuse missing checks for this Ubuntu amd64 delivery.
+- Changes to the unrelated PDS Cloudflare-host feature or other installers beyond shared bootstrap
+  dependencies needed here. PDS remains independently usable for ordinary host setup.
 
 ## Design
 
@@ -218,7 +278,7 @@ at the command line:
 ```bash
 packer init .
 
-# Proxmox-native template (default / preferred)
+# Optional Proxmox-native template
 packer build -only='proxmox-clone.ubuntu' -var-file=variables.pkrvars.hcl .
 
 # Portable local qcow2/raw artifact
@@ -361,8 +421,9 @@ moves to cloud-init at clone time:
 - **Remove** hostname assignment (`hostnamectl` / `/etc/hosts` / `hostname_vars.sh` reads).
 - **Remove** the generated cloud-init `netplan`; clone-time cloud-init owns addressing. The selected
   design uses DHCP and leaves no builder-written fallback network file.
-- **Remove** build-time creation of the `sysadmin` user + hardcoded `SSH_PUBLIC_KEY` and SSHD hardening.
-  Users and keys are injected by cloud-init at clone time.
+- **Remove** build-time creation of the fixed `sysadmin` user and hardcoded `SSH_PUBLIC_KEY`.
+  Users and keys are injected by cloud-init at clone time. Generic SSH restrictions are supplied by
+  PDS at build time and retained in the finished image.
 - **Reset cloud-init state before sealing** so every clone re-runs cloud-init as if first-booted
   (the classic template gotcha; otherwise clones skip clone-time init):
   ```bash
@@ -378,8 +439,8 @@ moves to cloud-init at clone time:
   temporary build SSH key Packer injected.
 
 Native Ubuntu packages, locale, timezone and keyboard configuration are shared by both builders via
-`cloud-init/build-config.yaml`. Shell customisations, MOTD and third-party tools remain the subject
-of the separate PDS integration; this feature does not install PDS.
+`cloud-init/build-config.yaml`. Shell customisations, MOTD and selected third-party tools are supplied by the package-backed PDS
+step described below. The current executable baseline does not implement that step yet.
 
 ### Output
 
@@ -416,7 +477,152 @@ allocation; reserve an unused explicit ID when restricting the token to particul
 
 ### Current orchestration draft
 
-`packer/ubuntu/ubuntu.pkr.hcl` uploads the image configuration, runs `scripts/wait-cloud-init.sh`, passes the config path to `scripts/install.sh`, and calls `scripts/seal-image.sh --image-build` last. The readiness provisioner has a 20-minute deadline. Both builders share that ordering. The disabled Ubuntu account and its standard sudo rule remain so the existing authenticated session can request shutdown. Clone-time inputs supply usable deployed access. PDS remains standalone; package-backed function selection belongs to feature 0003.
+`packer/ubuntu/ubuntu.pkr.hcl` uploads the image configuration, runs `scripts/wait-cloud-init.sh`, passes the config path to `scripts/install.sh`, and calls `scripts/seal-image.sh --image-build` last. The readiness provisioner has a 20-minute deadline. Both builders share that ordering. The disabled Ubuntu account and its standard sudo rule remain so the existing authenticated session can request shutdown. Clone-time inputs supply usable deployed access. The expanded design adds the package-backed PDS step between native Ubuntu configuration and sealing. PDS remains standalone.
+
+### PDS provisioning and package identity
+
+Builders installs an exact PDS version, sources `/usr/share/pds/init.sh` explicitly in non-interactive
+Bash and calls named shared functions. Native Ubuntu apt packages remain in
+`cloud-init/build-config.yaml`; reusable software installers and configuration stay in PDS.
+`install.sh` keeps its explicit cloud-config input and short orchestration role. Sealing and base
+preparation remain separate scripts; PDS does not acquire Proxmox or sealing responsibilities.
+
+Normal builds obtain the selected version from the signed PDS APT repository. Version and trust
+inputs are explicit, updater-discoverable build configuration. Missing versions, trust failures,
+missing functions and failed selected installers stop the build. No fallback to `latest`, the default
+branch, a local source directory or a different installed version is allowed.
+
+Before PDS is merged/released, an explicit candidate-package input may upload a locally built `.deb`
+for integration tests. It requires the expected package name, version and SHA-256; the installed
+package must match them. The build records candidate provenance and must not label this route as
+published-release validation. The normal signed-repository route must also pass before final delivery.
+No PDS release or merge is triggered by preparing this builders PR.
+
+The owner first reviews the dependent PDS PR. Only after separate owner authorization may that PR
+be merged and its existing release pipeline run. Record the actual CI-assigned version and published
+package identity in builders, replacing the candidate test input, then repeat signed-repository
+builds and fresh-user checks for both outputs. Until then the builders PR is a candidate integration;
+it cannot receive final acceptance from local-package tests alone. The agent does not merge or
+trigger a release through this handoff.
+
+Only the needed PDS libraries and packaging receive dependent repairs. Both installed-package and
+standalone checkout/raw-bootstrap usage are checked; loading the library defines functions without
+running installers, changing shell options or downloading anything. No Proxmox dependency is added.
+
+### Bootstrap preservation map
+
+| Earlier capability | Planned home and observable result |
+| --- | --- |
+| Ubuntu packages, locale, keyboard and timezone | Native cloud-init settings shared by both outputs. |
+| Zi and Powerlevel10k | PDS `install_zi` and `configure_zsh`, preserving the existing preset, plugin set and Zi workflow. The owner selected the existing Zi per-user first-login downloads, keeping the current preset and plugin configuration. First shell startup needs internet access. |
+| MOTD | PDS supplies file-based VHCO, Stackweaver and legacy EdgeForge presets. Builders defaults to VHCO; a shared helper selects a preset or accepts an operator banner file, preserving other MOTD scripts. |
+| GitHub CLI | PDS `install_gh`; verify the binary in a built image without configuring an account or token. |
+| kubectl, alias and completion | PDS supplies system tooling and shared shell configuration, usable by a new deployment user rather than only the build account. The version/channel input is explicit. |
+| Krew, stern, view-secret and neat | Preserve Krew and all three plugins for a fresh deployment user through supported PDS image/user setup. Failed downloads cannot be logged as successful provisioning; no empty plugin selection satisfies this scope. |
+| Hostname, users, SSH keys, login shell, sudo and network identity | Clone-time cloud-init inputs. A documented example selects Zsh and sudo for the deployed user; no hardcoded `sysadmin` or personal key is retained. |
+| Automatic updates and restrictive SSH policy | PDS configures the nightly midnight update job and a retained public-key SSH baseline with password and root logins disabled. Both are baked into each image. |
+| Manual GRUB rewrites | The official cloud image provides its boot chain. Retain the boot test, not an unverified architecture-specific reinstall command. Firmware modes beyond the tested configuration remain unclaimed. |
+
+The PDS candidate's user-local kubectl/Krew setup must be corrected upstream, keeping its ordinary
+workstation entry point compatible. Builders selects the image behavior; it does not copy the
+installer. The owner selected the existing Zi first-login workflow on 2026-11-04. PDS supplies
+Zi, the shared zshrc and the existing Powerlevel10k preset; Zi downloads the selected plugins and
+snippets into each user's home when first needed. Powerlevel10k may also fetch its supporting
+binary. First shell startup therefore needs internet access, and upstream plugin revisions can
+change between users or deployments.
+
+Keep the current Zi configuration and standalone installation behavior. This scope adds no
+image-specific plugin cache, shared prefetched asset tree or plugin lockfile. Pinning the PDS
+package fixes its functions and configuration; it does not freeze first-login plugin contents.
+Record that reproducibility limit in the bootstrap guide and validation results.
+
+The package's interactive auto-loader and login message remain PDS behavior during this preparation.
+AC-11's strict error-reporting contract applies to explicit non-interactive loading; it makes no
+claim that the existing interactive loader stops suppressing errors. Inspect both `/root` and
+`/home/ubuntu` for build residue, regardless of which HOME `sudo` supplies. Shared assets belong in
+system/skel locations; build-user homes must not become deployment-user paths.
+
+Native validation supplies a complete deployment cloud-config through a `cicustom` user snippet;
+this makes the chosen user's shell and sudo policy explicit. It needs snippet-capable storage,
+access to the owned snippet and permission to reference it from the owned clone. Preflight checks
+these prerequisites; it does not silently change storage settings. The same config is delivered by
+NoCloud seed for the portable path. Assert the user's actual login shell and sudo policy, not merely
+that a manual Zsh command runs. Proxmox's source generator and custom-snippet reader establish this
+mechanism; the installed node's behavior still requires the planned live test.
+
+The PDS dependency includes package-test CI and trigger coverage for packaged `bash/config/` assets
+and tests. Relevant ShellCheck failures must not be swallowed by the existing broad lint recipe.
+The PDS default checkout contains an earlier APT-workflow edit; preserve it and assess any needed
+transfer independently, without overwriting it. Do not pull the unrelated Cloudflare feature in.
+
+### Baked update and SSH policy
+
+Both outputs receive the same automatic-update and SSH baseline through named PDS functions.
+`update_system_cron_entry` selects the existing nightly `00:00` update policy, using the image's
+configured timezone. It updates APT metadata and upgrades available packages, not only security
+packages. Native Ubuntu package configuration provides the scheduler, and its enabled state must
+survive into each fresh instance. Repeated provisioning creates one managed job. This scope adds no
+automatic reboot policy.
+
+`restricted_ssh_security_profile` supplies a retained managed OpenSSH configuration: password and
+keyboard-interactive login disabled, public-key authentication enabled, and root SSH login disabled.
+The current PDS function only rewrites a few default lines with sed; the dependent PDS repair must
+make the intended effective settings reliable and repeatable without duplicating the logic in builders.
+Verify configuration syntax and effective settings, including after clone-time cloud-init runs.
+
+Keep temporary Packer access usable until provisioning and sealing finish. The QEMU path initially
+uses password access, while the native path uses a temporary key. Apply the final policy without a
+premature daemon restart, then remove the temporary build password/key and generated policy during
+sealing. The retained PDS policy must survive cleanup and fresh cloud-init initialization. A finished
+instance accepts its injected non-root user's key, rejects password login and rejects root SSH.
+This is separate from resetting SSH host keys and machine identity.
+
+### File-based MOTD presets
+
+The owner uses VHCO for current branding and wants EdgeForge retained for possible future use.
+Provide three bundled text banners under PDS `bash/config/motd/`: `vhco.txt`, `stackweaver.txt` and
+`edgeforge.txt`. The existing nFPM `bash/config` mapping packages them under
+`/usr/share/pds/config/motd/`. Preserve the legacy EdgeForge banner from
+`origin/main:packer/ubuntu/scripts/install.sh` rather than replacing it with the new brand.
+The original MOTD block and draft banner text were retained privately for comparison; the new VHCO
+and Stackweaver assets are plain title drafts pending their visual treatment.
+
+Keep `setup_motd <banner-file> [none|fastfetch|neofetch]` compatible with the existing candidate.
+Add `setup_motd_preset <vhco|stackweaver|edgeforge> [none|fastfetch|neofetch]` as a small selector
+that resolves a bundled file and delegates to that helper. Resolve assets from the installed package
+or a complete standalone checkout. Reject unknown preset names and missing assets before changing
+the active MOTD. Text files are read as data, never sourced or evaluated as shell code.
+
+Builders selects `vhco` by default through an explicit configurable MOTD-preset input. Other images
+can select `stackweaver` or `edgeforge`; operators can continue supplying a custom file to the base
+helper. A selection installs one active banner, not all presets at login. The helper manages only its
+own `/etc/update-motd.d/90-pds` entry and copied banner under `/etc/pds`, leaving distribution and
+operator scripts intact. Dynamic system information remains optional and separate from branding.
+Changing a preset requires no duplicated shell function. These are image/host banners, with no
+claim about where Stackweaver or any workload is deployed.
+
+### Bounded image checks and delivery order
+
+Keep `make check` available without Proxmox credentials or KVM. Add bounded host-side checks for the
+PDS version/origin and required functions, provisioning failure propagation, packaged assets, offline
+identity invariants and first-boot behavior. New behavioral tests run failing before their repairs.
+Do not substitute a mocked function-call test for real package or image validation.
+
+The standalone amd64 path builds qcow2 plus raw, compares their contents, inspects the sealed disk
+read-only and boots two instances with different NoCloud users/keys. Each must finish cloud-init,
+accept SSH with its supplied key and expose the selected tooling to that new user. Compare machine
+IDs and host keys, and check removal of build credentials. The native path repeats those assertions
+on the resulting Proxmox template and two owned clones, with the selected `host` CPU default.
+
+PR checks run static/regression and package checks without homelab credentials. Image build/boot jobs
+check KVM availability and report missing acceleration explicitly; a skipped job is not image proof.
+Native validation stays an explicit owned-resource operation. Final acceptance requires observed
+image results for both outputs even if a hosted runner cannot perform them.
+
+Preparation proceeds through the PDS package/standalone contract, shared installer repairs, builders
+package selection, bounded image checks, documentation and final source review. Publication describes
+one builders PR and its separate PDS dependency. The issue links remain open until their implemented
+scope is verified and merged by the owner. Feature 0002 remains open for its wider matrix.
 
 ## Acceptance Criteria
 
@@ -424,9 +630,18 @@ allocation; reserve an unused explicit ID when restricting the token to particul
 - [ ] AC-02: `packer init .` installs both `hashicorp/proxmox` (`1.2.4`) and `hashicorp/qemu` plugins.
 - [ ] AC-03: `packer build -only='proxmox-clone.ubuntu' …` clones the base and produces a **template** on the PVE node (verified via `qm config <vmid>` showing `template: 1`) with an **empty cloud-init drive** attached; no per-build `qm importdisk`/upload anywhere in the flow. The native CPU model defaults to `host` and is configurable; the template and two fresh clones use the selected default, and blank or whitespace-padded model names fail local validation.
 - [ ] AC-04: `packer build -only='qemu.ubuntu' …` still produces the local qcow2/raw artifact.
-- [ ] AC-05: The resulting image contains **no** baked hostname, static IP/netplan identity, or SSH host keys, and boots with a **fresh `machine-id`** (two clones get distinct ids).
-- [ ] AC-06: The sealed image retains no build password, authorized keys or generated SSH policy override. The default Ubuntu account may remain only locked and keyless, with its standard sudo policy. Any usable deployed login and site-specific identity or SSH policy are supplied at clone time.
-- [ ] AC-07: `packer/ubuntu/readme.md` documents the `-only` invocation for both formats and the required Proxmox variables/secrets.
+- [ ] AC-05: Both native and portable sealed outputs contain no site-specific hostname, static IP/netplan identity or SSH host keys; two independently initialized instances of each output receive distinct machine IDs and host keys and apply their supplied identities.
+- [ ] AC-06: The sealed image retains no build password, authorized keys or generated SSH policy override. The default Ubuntu account may remain only locked and keyless, with its standard sudo policy. Usable deployed users, keys and site-specific identity are supplied at clone time; the baked PDS SSH baseline remains effective after fresh cloud-init initialization.
+- [ ] AC-07: Short root and Ubuntu READMEs link canonical procedures for both output selections, PDS bootstrap, SSH/debugging and recovery; small flow diagrams use Mermaid and Proxmox is explicitly optional.
+- [ ] AC-08: Both builders install the exact selected PDS package, verify its identity and provenance, and fail on missing, mismatched or untrusted inputs; candidate-package testing is distinguished from a verified signed-repository release build.
+- [ ] AC-09: The shared provisioner applies native Ubuntu settings and an explicit PDS function selection for Zi/Powerlevel10k, MOTD, GitHub CLI, kubectl, Krew, neat/view-secret/stern, nightly package updates and restricted SSH; reusable implementations live in the standalone PDS package, and selected-function failures stop provisioning.
+- [ ] AC-10: A new deployment user receives working Zsh/Powerlevel10k, the kubectl alias/completion, Krew and the neat, view-secret and stern plugins from either output, with its configured Zsh login shell and sudo policy and without inheriting build credentials or build-home paths. Zi populates the existing plugin set on first shell startup with network access; no image-prefetched plugin cache is required.
+- [ ] AC-11: The PDS package loads non-interactively without installer/network side effects, preserves the caller's shell state and reports library failures; its supported standalone setup preserves Zi, the preset and the existing plugin set. Error-reporting assertions cover explicit non-interactive loading; interactive auto-loading is documented separately.
+- [ ] AC-12: Repository checks exercise package-backed provisioning, failure paths, sealed-artifact assertions and two fresh boots of each Ubuntu amd64 output; CI reports executed versus skipped checks, and native checks preserve all pre-existing guests.
+
+- [ ] AC-13: PDS bundles selectable VHCO, Stackweaver and preserved EdgeForge MOTD text presets; builders defaults to configurable VHCO, custom-file usage remains supported, and invalid selections leave the active MOTD and other MOTD scripts unchanged.
+
+- [ ] AC-14: Both image outputs retain one configured nightly midnight package-update job with an enabled scheduler and effective SSH settings that allow injected non-root public-key login while disabling password, keyboard-interactive and root login; repeated provisioning is safe and temporary Packer access is removed only after it is no longer needed.
 
 ## Test Plan
 
@@ -436,11 +651,22 @@ allocation; reserve an unused explicit ID when restricting the token to particul
 | AC-02 | Run `make init`, then validate that both required plugin versions load. |
 | AC-03 | Run the native Packer build with a scoped test token; inspect the output template flag, cloud-init volume and absence of temporary cloud-init credentials. Inspect the native source and build log to confirm there is no disk-import or disk-upload step after Stage 0. Verify the native default and both fresh clones report `cpu: host` and expose node AES/AVX features; validate a CPU override and reject both an empty model and a whitespace-padded value such as `" host "`. |
 | AC-04 | Run the QEMU builder with raw export enabled; inspect both formats and compare their disk contents. |
-| AC-05 | Inspect a powered-off artifact, then boot two fresh instances with separate cloud-init inputs; compare machine IDs, host keys and applied identity. |
-| AC-06 | Run the manual disposable-container `tests/test_sealing.sh` check with real cloud-init; verify sealing removes the temporary SSH password override and discards the build-password hash. `make check` lint-checks this script but does not execute its destructive guest changes. Inspect both sealed outputs and boot fresh instances with consumer-supplied users/keys; effective SSH policy must match clone-time inputs. |
-| AC-07 | Follow the Ubuntu guide for both output selections and verify documented variables against the template. |
+| AC-05 | Inspect each native and portable sealed artifact read-only, then boot two fresh instances of each with separate cloud-init inputs; compare machine IDs, host keys and applied identity. The qcow2/raw disks must compare identically. |
+| AC-06 | Run the manual disposable-container `tests/test_sealing.sh` check with real cloud-init; verify sealing removes the temporary SSH password override and discards the build-password hash. `make check` lint-checks this script but does not execute its destructive guest changes. Inspect both sealed outputs and boot fresh instances with consumer-supplied users/keys; effective SSH policy must retain the baked restrictions while accepting the supplied non-root user's key. |
+| AC-07 | Follow linked task guides for both outputs and a temporary SSH/VNC session; check local links, examples and variables against source. Render both Mermaid diagrams and verify the standalone quick start needs no Proxmox credentials. |
+| AC-08 | Exercise exact-version repository installation and explicit candidate upload; reject wrong version, package name, checksum, trust and missing-function inputs. Inspect dpkg package metadata and recorded provenance in each built output; final validation includes the signed-repository route. |
+| AC-09 | Inspect the selected PDS functions and their installed-package origins; execute real provisioning and verify tools/settings in the image. Inject a failing selected function and require the provisioner to fail before sealing. |
+| AC-10 | Log into each fresh instance as its supplied new user; check the actual Zsh login shell and documented sudo policy, preset, kubectl alias/completion, Krew and neat/view-secret/stern commands. Exercise actual Zi first-login downloads with network access, then verify the preset/plugins work on a subsequent shell startup; record the downloaded revisions and network requirement. Inspect /root and /home/ubuntu in each sealed filesystem for build-user paths, keys, tokens and history; use a complete native cicustom snippet and equivalent portable NoCloud seed. |
+| AC-11 | Install the built PDS package in disposable Ubuntu and run its strict-load, missing-library, Zi/preset, MOTD, sudoers and standalone-path tests. Add real selected-installer/new-user coverage; existing Zi stubs do not prove actual downloads or plugin startup. |
+| AC-12 | Execute documented Make targets and PR checks, including negative artifact fixtures; retain per-output build/offline/boot results and explicit skips. For Proxmox, snapshot original guest configurations/power states, reserve unused owned IDs, and audit ownership-limited cleanup afterward. |
+| AC-13 | Inspect the built package for all three banner files and compare EdgeForge with the preserved legacy banner. Exercise each preset and custom-file usage in disposable Ubuntu, including standalone-checkout resolution, repeated application, preset switching, unknown names and missing files; verify unchanged operator scripts and no changes after invalid selection. Check the configured banner in both image outputs. |
+| AC-14 | In disposable Ubuntu, apply the PDS update/SSH helpers twice; check exactly one midnight job, scheduler enablement, sshd syntax and effective authentication settings. Build both outputs without losing Packer access; inspect the retained policy offline and verify the job, scheduler and effective SSH settings in two fresh instances per output. Observe successful injected non-root key login and failed password/root login; retain the executed results and limits. |
 
 ## Tasks
+
+The existing T1-T7 entries below are history from the earlier scope, with no completion inferred.
+Schedule the new package, bootstrap and harness tasks only after the revised baseline is reviewed and
+accepted; the design above records their dependency order without inventing completed task commits.
 
 Delivery note: the post-approval changes in `deae257` are documentation only (AGENTS, the feature
 record, README and recovery guide). The merge from main preserves its apt/PDS boundary in the migrated
@@ -473,19 +699,7 @@ was resolved by the owner in the Native CPU model decision. None of these follow
 
 ## Open Questions
 
-### Q1: Should AC-05 explicitly require identity checks for both output paths?
-
-**Recommendation:** A. Inspect both outputs and boot two fresh instances of each. The implementation
-already received those checks, and this prevents verification of one base image from standing in for the other.
-
-| Option | You get | It costs |
-| --- | --- | --- |
-| **A. Explicitly verify both outputs** | Native and portable identity behavior are both required. | Offline inspection and two fresh boots for each output in future acceptance runs. |
-| **B. Keep the current wording** | The existing general image criterion remains. | Its proof can be read as accepting only one output. |
-
-**Why this is yours:** It makes the required verification scope explicit in the definition of done.
-The owner's current off-node and CPU-model decisions remain settled.
-
+None.
 
 ## Review Log
 
@@ -502,6 +716,7 @@ The owner's current off-node and CPU-model decisions remain settled.
 | 2026-11-04 | R-9 | implementation | `edcdb0a169316f22d98854d9f44f8fab18459edf` | claude-opus-5-5 | procedural | AC-02 and AC-07 met; live execution remains not independently verified. |
 | 2026-11-04 | R-10 | spec | `1dcd2c59a5a01cc2301f63e41ab1516cbe6d88f1` | claude-opus-5-5 | procedural | One delivery-note nit; Q1 remains pending. |
 | 2026-11-04 | R-11 | implementation | `1dcd2c59a5a01cc2301f63e41ab1516cbe6d88f1` | claude-opus-5-5 | procedural | No implementation findings; AC-02 and AC-07 met, remaining criteria not independently verified. |
+| 2026-11-04 | R-12 | spec | `4bf428f9cb2e4e4ce20eb8e6c5619af23d0a3209+dirty` | claude-opus-5-5 | procedural | Diagnostic of expanded PDS scope; six findings, no acceptance. |
 
 ### R-1
 
@@ -1106,7 +1321,56 @@ EVIDENCE: Inspected packer/ubuntu/readme.md at the target. It gives `packer buil
 
 NO FINDINGS
 
+### R-12
+
+FINDING: F-01
+KIND: judgement
+SEVERITY: should-fix
+WHERE: Acceptance Criteria AC-09 and AC-10; Design, Bootstrap preservation map (Krew row)
+EVIDENCE: The map row "Krew, stern, view-secret and neat" says "Selected plugins must work for a fresh user ... Any proposed omission needs an owner decision". AC-09 lists only "Zi/Powerlevel10k, MOTD, GitHub CLI and kubectl" and does not mention Krew. AC-10 requires only "the selected kubectl alias/completion and selected Krew plugins", and no section says which plugins are selected. The source behaviour is purely per user. pds-source/bash/debian/software/install_kubectl.sh:60 checks `$HOME/.krew/bin/kubectl-krew`, line 97 installs `("neat" "view-secret" "stern")`, and lines 76 and 102 only print warnings when a download fails. An empty selection would therefore tick AC-09 and AC-10, and the user's earlier stern/view-secret/neat tooling would still be lost.
+PROPOSAL: Name neat, view-secret and stern (and Krew itself) in AC-09 and AC-10 as required for a fresh user from both outputs, or record an owner decision that omits them. The AC-10 proof should run each plugin as the new user.
+
+FINDING: F-02
+KIND: judgement
+SEVERITY: should-fix
+WHERE: Design, Bootstrap preservation map (Zi and Powerlevel10k row) and following paragraph; AC-10; AC-11
+EVIDENCE: The map promises "preserving the existing preset and Zi workflow" and also "first shell startup does not require an installer download". The paragraph after it adds that Zi/plugin downloads are "selected at exact revisions". The existing workflow is the packaged pds-source/bash/config/zshrc:11-33. It runs unpinned `zi light romkatv/powerlevel10k`, `zsh-users/*`, `agkozak/zsh-z`, `michielvha/zsh-readline` and `zi snippet OMZP::docker|history|git`, which Zi clones into each user's home on first startup. Powerlevel10k's gitstatus also fetches a gitstatusd binary into the user's cache on first prompt. AC-11 requires "existing Zi/preset behavior continue to work", and tests/image_provisioning_test.py:70-71 asserts those exact unpinned `zi light` lines. zsh.sh:16 also clones Zi at the default branch. As written, the design cannot satisfy both "preserve the existing workflow" and "no download, exact revisions". It also names no mechanism, such as a shared Zi home or skel-seeded plugins with version ices, and does not list gitstatusd among the bounded inputs.
+PROPOSAL: Say which zshrc and Zi changes PDS will make: pinned revisions for Zi and every plugin and snippet, a prebuilt shared or skel location, and gitstatusd handling. Reword AC-11's "existing Zi/preset behavior" to mean the same preset and plugin set, not unpinned per-user first-start cloning.
+
+FINDING: F-03
+KIND: judgement
+SEVERITY: should-fix
+WHERE: Design, PDS provisioning and package identity; Bounded image checks and delivery order; Scope (Out of scope); AC-08
+EVIDENCE: Design says "The normal signed-repository route must also pass before final delivery", and AC-08 requires a "verified signed-repository release build". Scope puts "Merging, releasing PDS" out of scope. pds-source/.github/workflows/build-apt-package.yml:134 and :169 create a release and APT publication only on pushes to main. Lines 68-80 also overwrite the version with GitVersion output. The candidate's `version: 1.0.0` (packaging/nfpm.yaml:2) is a placeholder, so the published version will differ from the candidate (latest release 0.19.0). The delivery order paragraph names "its separate PDS dependency" but no handoff. It does not say the owner merges PDS first, that the assigned release version then replaces the candidate pin in builders, or that builders cannot be accepted until then.
+PROPOSAL: Add an explicit handoff: the PDS PR is merged and released by the owner, its CI-assigned version is recorded as the builders pin, and the signed-route builds for both outputs then run before builders acceptance. State that the candidate's 1.0.0 is a local placeholder identified only by its SHA-256.
+
+FINDING: F-04
+KIND: judgement
+SEVERITY: should-fix
+WHERE: Design, Bootstrap preservation map (Hostname, users ... login shell, sudo row); AC-10; Test Plan AC-10; Design, Variables & secrets
+EVIDENCE: The map says "A documented example selects Zsh and sudo for the deployed user". The Test Plan for AC-10 only says "launch Zsh", so a user whose login shell is still Bash passes. For the native output, the earlier recorded clone checks used Proxmox-supplied users and keys (Context, "Native host CPU follow-up"). Proxmox's generated cloud-init user data does not set a login shell or sudo rule, so choosing Zsh for a native clone needs custom user data (for example a cicustom snippet on snippet-capable storage). The token scope in Variables & secrets covers only VM IDs, the target pool and the bridge. No section names this dependency for the two native clone checks.
+PROPOSAL: Make the AC-10 proof require that the new user's login shell is Zsh and that the documented sudo choice applies on both outputs. Name the native clone-time mechanism and any storage or permission it needs.
+
+FINDING: F-05
+KIND: factual
+SEVERITY: nit
+WHERE: Context, Combined PR preparation (2026-11-04)
+EVIDENCE: Context says the earlier `origin/main:packer/ubuntu/scripts/install.sh` "selected Zi, shell configuration, an update cron entry and kubectl". The preserved history in docs/specs/0003-pds-provisioning-migration.md:45-53 also lists `set_sudo_nopasswd`, `restricted_ssh_security_profile`, GitHub CLI and an inline MOTD/neofetch block. The Bootstrap preservation map relies on the GitHub CLI, MOTD, sudo and SSH-policy rows as earlier capabilities. I could not read the origin blob itself with Read/Grep/Glob.
+PROPOSAL: Complete the list of earlier capabilities, citing the origin file and lines, so it matches the preservation map.
+
+FINDING: F-06
+KIND: judgement
+SEVERITY: nit
+WHERE: AC-10, AC-11; Test Plan AC-10
+EVIDENCE: Installing the package changes deployed-user shells in two ways that no section mentions. pds-source/packaging/scripts/postinstall.sh:29-38 appends an auto-load block to /etc/bash.bashrc that runs `. /usr/share/pds/init.sh 2>/dev/null || true`. packaging/profile.d/pds.sh:26-29 hides loader stderr and prints "PDS Functions loaded!" on interactive login. So AC-11's "reports library failures" holds for the explicit build-time source but not for every deployed user's shell. Also, the provisioners run under `sudo -n bash` (ubuntu.pkr.hcl:97,102), so `configure_zsh` (zsh.sh:59-60,67) and `install_kubectl` (install_kubectl.sh:25-28,84-85) write to the invoking HOME. That HOME is likely /root rather than the ubuntu account, and the AC-10 inspection of "build-user paths" does not name /root.
+PROPOSAL: State whether the image keeps package auto-loading and the login message for deployed users, and narrow AC-11's failure-reporting promise to the paths it covers. Include /root in the AC-10 residue inspection.
+
 ## Sources
+
+- [Proxmox cloud-init source](https://github.com/proxmox/qemu-server/blob/master/src/PVE/QemuServer/Cloudinit.pm), `cloudinit_userdata` and `get_custom_cloudinit_files`/`read_cloudinit_snippets_file`, read on 2026-11-04: generated user data omits an explicit shell, while custom user data is read from snippet storage. This upstream inspection does not validate the installed node.
+
+- PDS candidate `/home/m/code/PDS-image-provisioning` at `04c8dee+dirty`: `packaging/init.sh`, `packaging/nfpm.yaml:50-66`, `bash/common/shell/zsh.sh:4-68`, `bash/config/zshrc`, `bash/debian/software/install_kubectl.sh:7-107` and `tests/image_provisioning_test.py` establish the observed package contract and remaining installer gaps.
+- `gh api repos/michielvha/PDS/releases/latest`, `commits/main` and `pulls`, read on 2026-11-04: published release, source baseline and unrelated open PR boundary. The private preparation snapshot and package-test log preserve this run's inputs.
 
 - [Packer `proxmox-clone` builder](https://developer.hashicorp.com/packer/integrations/hashicorp/proxmox/latest/components/builder/clone)
 - [Create Proxmox cloud-init templates for Packer (base bootstrap)](https://dev.to/mike1237/create-proxmox-cloud-init-templates-for-use-with-packer-193a)
