@@ -7,3 +7,6 @@ output-*/
 # real secrets / per-host values (keep the .example)
 *.auto.pkrvars.hcl
 !*.auto.pkrvars.hcl.example
+
+# Python safety-test bytecode
+__pycache__/

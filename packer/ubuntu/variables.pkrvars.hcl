@@ -3,4 +3,4 @@
 ubuntu_version   = "noble"
 arch             = "amd64"
 qemu_accelerator = "kvm"
-user_password    = "changeme"
+output_raw       = false

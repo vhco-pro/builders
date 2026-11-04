@@ -8,24 +8,25 @@ variable "ubuntu_version" {
 variable "arch" {
   type        = string
   default     = "amd64"
-  description = "Target arch for the qemu build (amd64 or arm64). Override to arm64 for a fast HVF build on Apple Silicon."
+  description = "Target architecture for QEMU. amd64 is verified; arm64/HVF needs separate runtime validation."
 }
 
 variable "qemu_accelerator" {
   type        = string
   default     = "kvm"
-  description = "QEMU accelerator. Linux/KVM: kvm. macOS same-arch: hvf. Cross-arch emulation: none (slow TCG)."
+  description = "QEMU accelerator. Linux/KVM: kvm. macOS same-arch: hvf. Software emulation: tcg (slow)."
 }
 
-variable "user_password" {
-  type        = string
-  default     = "changeme"
-  description = "Password set on the default 'ubuntu' user during cleanup (build-time only)."
+variable "output_raw" {
+  type        = bool
+  default     = false
+  description = "Also export a raw disk after the portable qcow2 build."
 }
 
 # -- proxmox api (proxmox-clone builder) --
-# Placeholder defaults keep `packer validate` green; override real values in an
-# untracked *.auto.pkrvars.hcl. NEVER commit the token.
+# Override connection placeholders in an untracked *.auto.pkrvars.hcl.
+# Validation also requires a nonempty token; make check supplies a dummy value.
+# NEVER commit a real token.
 variable "proxmox_url" {
   type        = string
   default     = "https://proxmox.example.com:8006/api2/json"
@@ -53,19 +54,36 @@ variable "proxmox_node" {
 
 variable "proxmox_insecure" {
   type        = bool
-  default     = true
-  description = "Skip TLS verify (true for self-signed homelab certs)."
+  default     = false
+  description = "Explicitly skip certificate verification for an isolated test host. Prefer a trusted certificate."
 }
 
 variable "proxmox_storage_pool" {
   type        = string
   default     = "local-lvm"
-  description = "Storage pool for the VM disk and the cloud-init drive."
+  description = "Storage pool for the final cloud-init drive. The cloned OS disk inherits the base template storage."
+}
+
+variable "proxmox_cpu_type" {
+  type        = string
+  default     = "host"
+  description = "Native Proxmox CPU model. host exposes the node CPU features; choose a shared supported model when live migration between different CPUs is required."
+
+  validation {
+    condition     = length(trimspace(var.proxmox_cpu_type)) > 0 && trimspace(var.proxmox_cpu_type) == var.proxmox_cpu_type
+    error_message = "The Proxmox CPU type must be a non-empty model name without surrounding whitespace, supported by the target node."
+  }
+}
+
+variable "proxmox_task_timeout" {
+  type        = string
+  default     = "10m"
+  description = "Maximum wait for asynchronous Proxmox operations such as a full clone. Increase for larger disks or slower storage."
 }
 
 variable "base_template_name" {
   type        = string
-  default     = "ubuntu-2404-cloudimg"
+  default     = "ubuntu-noble-cloudimg"
   description = "Name of the Stage-0 base cloud-init template to clone (see scripts/create-base-template.sh)."
 }
 
@@ -78,6 +96,6 @@ variable "template_name" {
 
 variable "template_vmid" {
   type        = number
-  default     = 9200
-  description = "VM id for the golden template."
+  default     = 0
+  description = "Output VM ID. Zero lets Proxmox allocate a new ID; set an unused ID explicitly for reserved test ranges."
 }

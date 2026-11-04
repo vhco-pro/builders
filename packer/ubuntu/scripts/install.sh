@@ -1,16 +1,13 @@
-#!/bin/bash -eux
-# Generic post-cloud-init step for the golden image (spec 0001 / issue #1).
-#
-# SCOPE: the image is GENERIC. Identity (hostname, users, SSH keys, static
-# network) is injected at CLONE time via cloud-init, never here. Networking
-# stays on DHCP (the cloud image default). Tooling (kubectl, zsh, hardening,
-# MOTD) moves to the PDS package in issue #3, so this stays intentionally
-# minimal and the image builds green and unidentified.
+#!/usr/bin/env bash
+set -euo pipefail
 
-# Redirect stderr to stdout so Packer doesn't paint the whole run red.
-exec 2>&1
+# Apply this image's native Ubuntu settings after first boot has completed.
+config_file="${1:?Usage: install.sh <cloud-config-file>}"
+if [[ ! -r "$config_file" ]]; then
+    printf 'Cannot read cloud config: %s\n' "$config_file" >&2
+    exit 1
+fi
 
-echo "==> Waiting for cloud-init to finish..."
-cloud-init status --wait
-
-echo "==> Generic provisioning complete (nothing baked in)."
+for module in package_update_upgrade_install locale timezone keyboard; do
+    cloud-init single --name "$module" --frequency always --file "$config_file"
+done

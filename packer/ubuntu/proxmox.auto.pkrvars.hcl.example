@@ -8,9 +8,11 @@ proxmox_url          = "https://pve.example.local:8006/api2/json"
 proxmox_api_token_id = "packer@pve!packer"
 # proxmox_api_token  = "..."   # prefer PKR_VAR_proxmox_api_token; NEVER commit
 proxmox_node         = "pve"
-proxmox_insecure     = true
+proxmox_insecure     = false
 proxmox_storage_pool = "local-lvm"
+proxmox_cpu_type     = "host" # Use a shared supported model for migration between different CPUs.
+proxmox_task_timeout = "10m" # Full clones can exceed the plugin's one-minute default.
 
-base_template_name = "ubuntu-2404-cloudimg"
+base_template_name = "ubuntu-noble-cloudimg"
 template_name      = "ubuntu-2404-base"
-template_vmid      = 9200
+template_vmid      = 0 # Automatic free ID. Use an explicitly checked ID for reserved ranges.

@@ -1,36 +1,7 @@
 #cloud-config
-# Build-time seed for the qemu builder only (gives Packer a known ubuntu/ubuntu
-# login). Throwaway: no identity is baked in, and cleanup.sh resets it.
+# Temporary QEMU build access. Lock the account and remove this seed at sealing.
 password: ubuntu
 ssh_pwauth: true
 chpasswd:
   expire: false
-
-# Locale / keyboard / timezone defaults (overridable at clone time).
-locale: nl_BE.UTF-8
-keyboard:
-  layout: be
-timezone: Europe/Brussels
-
-# Let cloud-init manage the hostname (generic; real hostname set at clone time).
 preserve_hostname: false
-
-# Update packages on first boot.
-package_update: true
-package_upgrade: true
-
-# Baseline tooling from Ubuntu's default apt repos (native apt integration).
-# qemu-guest-agent is required so Proxmox can read the VM's IP. Things apt can't
-# do cleanly (third-party repos like gh/kubectl, and config/setup logic such as
-# the zsh plugins/p10k, MOTD, and hardening) come from the PDS package in issue #3.
-packages:
-  - qemu-guest-agent
-  - git
-  - net-tools
-  - nmap
-  - nfs-common
-  - curl
-  - file
-  - build-essential
-  - zsh
-  - btop

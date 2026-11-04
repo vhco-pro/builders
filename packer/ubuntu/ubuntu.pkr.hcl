@@ -1,11 +1,11 @@
 packer {
   required_plugins {
     proxmox = {
-      version = ">= 1.2.2"
+      version = "= 1.2.4"
       source  = "github.com/hashicorp/proxmox"
     }
     qemu = {
-      version = "~> 1"
+      version = "= 1.1.8"
       source  = "github.com/hashicorp/qemu"
     }
   }
@@ -13,12 +13,12 @@ packer {
 
 # ---------------------------------------------------------------------------
 # qemu builder -> portable local qcow2 artifact.
-# Also the fast local test path: build arm64 with HVF on Apple Silicon via
+# Unvalidated arm64/HVF example; firmware and QEMU settings need separate verification:
 #   packer build -only='qemu.ubuntu' -var 'arch=arm64' -var 'qemu_accelerator=hvf' .
 # ---------------------------------------------------------------------------
 source "qemu" "ubuntu" {
   accelerator      = var.qemu_accelerator
-  cd_files         = ["./cloud-init/*"]
+  cd_files         = ["./cloud-init/user-data", "./cloud-init/meta-data"]
   cd_label         = "cidata"
   disk_compression = true
   disk_image       = true
@@ -27,7 +27,7 @@ source "qemu" "ubuntu" {
   iso_checksum     = "file:https://cloud-images.ubuntu.com/${var.ubuntu_version}/current/SHA256SUMS"
   iso_url          = "https://cloud-images.ubuntu.com/${var.ubuntu_version}/current/${var.ubuntu_version}-server-cloudimg-${var.arch}.img"
   output_directory = "output-${var.ubuntu_version}-${var.arch}"
-  shutdown_command = "echo 'packer' | sudo -S shutdown -P now"
+  shutdown_command = "sudo -n shutdown -P now"
   ssh_password     = "ubuntu"
   ssh_username     = "ubuntu"
   ssh_timeout      = "20m"
@@ -53,13 +53,17 @@ source "proxmox-clone" "ubuntu" {
   token                    = var.proxmox_api_token
   node                     = var.proxmox_node
   insecure_skip_tls_verify = var.proxmox_insecure
+  task_timeout             = var.proxmox_task_timeout
 
   # -- base to clone (Stage 0) --
   clone_vm        = var.base_template_name
   full_clone      = true
+  cpu_type        = var.proxmox_cpu_type
   scsi_controller = "virtio-scsi-pci"
   qemu_agent      = true
   os              = "l26"
+  memory          = 2048
+  cores           = 2
 
   # -- resulting golden template --
   vm_id                = var.template_vmid
@@ -81,22 +85,35 @@ build {
     "source.proxmox-clone.ubuntu",
   ]
 
-  # Generic, non-identity provisioning shared by both builders.
-  #
-  # Identity (hostname, users, SSH keys, static IP) is intentionally NOT set here.
-  # It is injected at CLONE time via cloud-init (spec 0001 / issue #1).
-  #
-  # Tooling (kubectl, zsh, hardening, MOTD) moves to the PDS package in spec 0003 /
-  # issue #3 and is intentionally omitted here so the image stays generic and builds
-  # green. install.sh only waits for cloud-init; cleanup.sh seals the image.
+  # Native OS configuration is applied through cloud-init for both outputs.
+  # PDS tooling remains a separate, pinned-package integration.
+  provisioner "file" {
+    source      = "cloud-init/build-config.yaml"
+    destination = "/tmp/build-config.yaml"
+  }
+
   provisioner "shell" {
-    execute_command = "echo 'packer' | sudo -S sh -c '{{ .Vars }} {{ .Path }}'"
-    scripts = [
-      "scripts/install.sh",
-      "scripts/cleanup.sh",
-    ]
+    timeout         = "20m"
+    execute_command = "sudo -n bash '{{ .Path }}'"
+    script          = "scripts/wait-cloud-init.sh"
+  }
+
+  provisioner "shell" {
+    execute_command = "sudo -n bash '{{ .Path }}' /tmp/build-config.yaml"
+    script          = "scripts/install.sh"
+  }
+
+  provisioner "shell" {
+    execute_command = "sudo -n bash '{{ .Path }}' --image-build"
+    script          = "scripts/seal-image.sh"
+  }
+
+  post-processor "shell-local" {
+    only = ["qemu.ubuntu"]
     environment_vars = [
-      "USER_PASSWORD=${var.user_password}",
+      "BUILD_QEMU_IMAGE=output-${var.ubuntu_version}-${var.arch}/ubuntu-${var.ubuntu_version}-${var.arch}.qcow2",
+      "BUILD_OUTPUT_RAW=${var.output_raw}",
     ]
+    script = "scripts/export-raw.sh"
   }
 }
