@@ -443,11 +443,14 @@ allocation; reserve an unused explicit ID when restricting the token to particul
 ## Tasks
 
 Delivery note: the post-approval changes in `deae257` are documentation only (AGENTS, the feature
-record, README and recovery guide). The runtime and test files match the owner-reviewed manifest.
-The merge from main adds its apt/PDS boundary to the migrated 0003 draft. No runtime feature changed.
-R-6 and R-7 reviewed the preceding baseline and became stale after its documentation corrections.
-R-9 refreshed the implementation review: AC-02 and AC-07 were observed as met; live-build criteria
-remain not independently verified. Its full criterion evidence is retained in the Review Log. No criterion is ticked while spec acceptance is pending.
+record, README and recovery guide). The merge from main preserves its apt/PDS boundary in the migrated
+0003 draft. Commit `1dcd2c5` also changes the HCL command comment at line 47 to omit a redundant
+argument for the automatically loaded vars file. Executable settings, scripts and tests are unchanged.
+
+R-6 and R-7 reviewed `0b33ecf`; R-8 and R-9 reviewed `edcdb0a`. Those reviews became historical when
+the baseline and HCL comment changed. The latest exact-commit records are retained below; local
+checks that a reviewer executed are distinguished from retained implementer-observed live tests.
+No criterion is ticked while specification acceptance is pending.
 
 
 Local worklist. The owner reviewed the implementation and authorized committing it, updating PR #4
@@ -497,6 +500,8 @@ The owner's current off-node and CPU-model decisions remain settled.
 | 2026-11-04 | R-7 | implementation | `0b33ecf5dbcade3bb3042b1b0dc60d5cbad1e8d9` | claude-opus-5-5 | procedural | AC-02 and AC-07 met; remaining live criteria not independently verified. |
 | 2026-11-04 | R-8 | spec | `edcdb0a169316f22d98854d9f44f8fab18459edf` | claude-opus-5-5 | procedural | Five non-blocking findings; Q1 remains pending. |
 | 2026-11-04 | R-9 | implementation | `edcdb0a169316f22d98854d9f44f8fab18459edf` | claude-opus-5-5 | procedural | AC-02 and AC-07 met; live execution remains not independently verified. |
+| 2026-11-04 | R-10 | spec | `1dcd2c59a5a01cc2301f63e41ab1516cbe6d88f1` | claude-opus-5-5 | procedural | One delivery-note nit; Q1 remains pending. |
+| 2026-11-04 | R-11 | implementation | `1dcd2c59a5a01cc2301f63e41ab1516cbe6d88f1` | claude-opus-5-5 | procedural | No implementation findings; AC-02 and AC-07 met, remaining criteria not independently verified. |
 
 ### R-1
 
@@ -1057,6 +1062,49 @@ SEVERITY: nit
 WHERE: packer/ubuntu/ubuntu.pkr.hcl:47, Design (Selecting output format at invocation)
 EVIDENCE: The comment at ubuntu.pkr.hcl:47 gives `packer build -only='proxmox-clone.ubuntu' -var-file=proxmox.auto.pkrvars.hcl .`. readme.md:130 and :186 say `*.auto.pkrvars.hcl` loads automatically and use no -var-file, while the Design example uses `-var-file=variables.pkrvars.hcl` for both builders. Passing the auto file explicitly loads it twice. This does no harm, but it is a third invocation form.
 PROPOSAL: Align the source comment with readme.md:130, so the native command takes no -var-file and relies on the automatically loaded file.
+
+### R-10
+
+
+FINDING: F-01
+KIND: factual
+SEVERITY: nit
+WHERE: Tasks, delivery note
+EVIDENCE: Spec lines 449 to 450 say "R-9 refreshed the implementation review: AC-02 and AC-07 were observed as met; live-build criteria remain not independently verified." At 1dcd2c59a5a01cc2301f63e41ab1516cbe6d88f1, running `vh-adlc fresh docs/specs/0001-packer-proxmox-native-output.md --repo . --plugin-pin 0e52f51f01b84eda75a976763c42d8ec0a07b544` reports R-8 as stale with reason `baseline-changed`. It reports R-9 as stale with reasons `baseline-changed` and `covered-changed`, because covered path packer/ubuntu/ubuntu.pkr.hcl changed. `git diff edcdb0a HEAD -- packer` shows that change is the ubuntu.pkr.hcl:47 build comment only, which no longer passes `-var-file=proxmox.auto.pkrvars.hcl`. Lines 445 to 447 say the runtime and test files match the owner-reviewed manifest and that no runtime feature changed. That was true for deae257, but the note never mentions that 1dcd2c5 later edited this comment in a covered runtime file. R-9 F-01 raised the same problem about R-7, and the note now repeats it one review later.
+PROPOSAL: State that R-8 and R-9 reviewed edcdb0a and are now stale against the current baseline. Also record that the only covered-path change since then is the comment at ubuntu.pkr.hcl:47, and that it changes no executable setting.
+
+### R-11
+
+
+CRITERION: AC-01 A committed `create-base-template.sh` turns the official Ubuntu cloud image into a base cloud-init template on the PVE host (qemu-guest-agent embedded), repeatably; no hand-clicking.
+VERDICT: not verified
+EVIDENCE: Executed `python3 -B -m unittest discover -s packer/ubuntu/tests -v` at 1dcd2c59a5a01cc2301f63e41ab1516cbe6d88f1 with a clean tree: 26 tests ran OK, including 16 base-template fixtures. The fixtures cover a missing host or ID, refusal of an occupied ID without download or delete, rejection of a corrupt or partial bundle before upload, rejection of upload corruption, a shrink refusal and an ID recheck before `qm create`, cleanup limited to the staging directory, and the stubbed import sequence. Read the committed prepare-base-image.sh, create-base-template.sh and import-base-template.sh: they verify the upstream checksum, install qemu-guest-agent through virt-customize, clear machine-id and host keys, check the bundle checksum locally and on the node, then run `qm create`, `importdisk`, set a cloud-init ide2 drive and finish with `qm template`. The live off-node preparation, the SSH-only bundle import on Proxmox 9.1.7, the occupied-ID refusal and the guest-preservation audit were read only as retained implementer evidence (docs/validation/0001-2026-11-04.md, /tmp/builders-offnode/). I did not execute them. The Test Plan's repeat import of the same bundle on a second unused ID was not found as an executed result in the committed summary. The live criterion is composite, and local fixtures with stubbed qm and pvesh do not establish it.
+
+CRITERION: AC-02 `packer init .` installs both `hashicorp/proxmox` (`1.2.4`) and `hashicorp/qemu` plugins.
+VERDICT: met
+EVIDENCE: Executed `packer init .` in packer/ubuntu using Packer v1.16.2 (the retained /tmp/builders-pr4-tools/packer ELF binary), with PACKER_PLUGIN_PATH, PACKER_CONFIG_DIR and PACKER_CACHE_DIR in an empty scratch directory outside the repository. Exit 0. Output: "Installed plugin github.com/hashicorp/qemu v1.1.8" and "Installed plugin github.com/hashicorp/proxmox v1.2.4". `packer plugins installed` listed both binaries. With those plugins, `packer validate .`, `packer validate -only=qemu.ubuntu .` and `packer fmt -check -recursive packer/ubuntu` all succeeded. The repository tree and index were unchanged afterwards. Limitation: Packer is not installed on this host, so the implementer's retained binary was used. ShellCheck is absent here, so the shellcheck step of `make check` was not observed.
+
+CRITERION: AC-03 `packer build -only='proxmox-clone.ubuntu' …` clones the base and produces a **template** on the PVE node (verified via `qm config <vmid>` showing `template: 1`) with an **empty cloud-init drive** attached; no per-build `qm importdisk`/upload anywhere in the flow. The native CPU model defaults to `host` and is configurable; the template and two fresh clones use the selected default, and blank or whitespace-padded model names fail local validation.
+VERDICT: not verified
+EVIDENCE: Executed locally with the scratch plugins: `packer validate .` passed with the `host` default. `-var 'proxmox_cpu_type=x86-64-v2-AES'` validated. `-var 'proxmox_cpu_type='` and `-var 'proxmox_cpu_type= host '` each exited 1 with the variable's "non-empty model name" error. `packer inspect` reports var.proxmox_cpu_type "host". Static read of ubuntu.pkr.hcl: the proxmox-clone source sets full_clone, cpu_type = var.proxmox_cpu_type, cloud_init = true and cloud_init_storage_pool. The only post-processor (line 111) is shell-local, limited to qemu.ubuntu. The file contains no importdisk or qm call. The only `file` provisioner uploads build-config.yaml into the guest, not a disk. `git diff 0b33ecf 1dcd2c5 -- packer/` shows only the comment edit at line 47. The live native build, the `template: 1` and cloud-init volume inspection, and the two fresh clones reporting `cpu: host` with AES/AVX are retained implementer evidence (/tmp/builders-hostcpu-20261104/, the validation summary) that I did not execute. The composite criterion is not upgraded by the passing local subset.
+
+CRITERION: AC-04 `packer build -only='qemu.ubuntu' …` still produces the local qcow2/raw artifact.
+VERDICT: not verified
+EVIDENCE: Executed `packer validate -only=qemu.ubuntu .`: valid. The unittest run includes test_export_is_optional_and_does_not_overwrite, which passed with a real qemu-img conversion of a disposable file. Read the qemu source: output_directory, the qcow2 vm_name and the shell-local export-raw.sh post-processor gated by output_raw. The portable KVM build, which produced matching 10 GiB qcow2 and raw disks, is retained implementer evidence (/tmp/builders-offnode/portable-final-build.log, the validation summary) that I did not execute. The summary states the portable image was not rebuilt after the native-only CPU and guard changes. My diff since 0b33ecf confirms the QEMU source and guest scripts are unchanged.
+
+CRITERION: AC-05 The resulting image contains **no** baked hostname, static IP/netplan identity, or SSH host keys, and boots with a **fresh `machine-id`** (two clones get distinct ids).
+VERDICT: not verified
+EVIDENCE: Read seal-image.sh at the target. It removes /etc/ssh/ssh_host_*, runs `cloud-init clean --logs --seed --configs ssh_config network`, truncates /etc/machine-id and relinks the D-Bus id, writes `localhost` to /etc/hostname and deletes the 127.0.1.1 hosts entry. install.sh and build-config.yaml set no hostname or static network. Executed test_sealing_requires_an_explicit_image_build_flag, which passed. The offline disk inspections and the fresh-boot pairs with distinct machine IDs and host keys for both outputs are retained implementer evidence that I did not execute. No guest or disk was inspected in this review.
+
+CRITERION: AC-06 The sealed image retains no build password, authorized keys or generated SSH policy override. The default Ubuntu account may remain only locked and keyless, with its standard sudo policy. Any usable deployed login and site-specific identity or SSH policy are supplied at clone time.
+VERDICT: not verified
+EVIDENCE: Read seal-image.sh. It runs `usermod --password '*' ubuntu`, removes the authorized_keys files for ubuntu and root, and removes the cloud-init ssh_config override and seed. It leaves the cloud-init sudoers rule, which the current criterion allows. cloud-init/user-data enables temporary password SSH for the QEMU build only, and the readme and Design describe that temporary access and its removal. The real cloud-init check tests/test_sealing.sh needs Docker and was not executed by me. `make check` only lints it, and ShellCheck is absent on this host. Sealed-artifact inspection and fresh boots with consumer-supplied users and keys are retained implementer evidence only.
+
+CRITERION: AC-07 `packer/ubuntu/readme.md` documents the `-only` invocation for both formats and the required Proxmox variables/secrets.
+VERDICT: met
+EVIDENCE: Inspected packer/ubuntu/readme.md at the target. It gives `packer build -only='proxmox-clone.ubuntu' .` and `packer build -only='qemu.ubuntu' .`, plus the raw and tcg variants. It documents the token ID and secret through PKR_VAR_proxmox_api_token, with a prompt that keeps the secret out of shell history, and the copy of proxmox.auto.pkrvars.hcl.example. It explains proxmox_insecure, template_vmid, proxmox_storage_pool, proxmox_task_timeout and proxmox_cpu_type, and how -var-file and auto-loading behave. I executed a scan comparing each declared Proxmox variable in variables.pkr.hcl with the readme and the example. All 11 are named in the example file. proxmox_url, proxmox_api_token_id, proxmox_node and base_template_name appear in the readme as described values ("endpoint, node, storage and base template name", token ID form) rather than by name. Packer validation confirms that the variable names in the example match the template. Limitation: the guide was not followed through a live build.
+
+NO FINDINGS
 
 ## Sources
 
