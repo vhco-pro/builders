@@ -12,6 +12,9 @@ that fits the target machine.
 
 With the [local prerequisites](../../docs/ubuntu/local-build.md#prerequisites) installed, start from the repository root:
 
+This branch needs the pending PDS feature release or an explicit candidate package; see the
+[recipe guide](../../docs/ubuntu/provisioning.md) before running a build.
+
 ```bash
 cd packer/ubuntu
 packer init .
@@ -31,8 +34,10 @@ The [example configuration](proxmox.auto.pkrvars.hcl.example) lists the native b
 
 ```mermaid
 flowchart LR
-    Build["Choose<br/>builder"] --> Prepare["Configure<br/>and seal"]
-    Prepare --> Output["Disk or<br/>template"]
+    Build["Choose builder"] --> Native["Ubuntu settings"]
+    Native --> Recipe["Selected PDS recipe"]
+    Recipe --> Seal["Seal image"]
+    Seal --> Output["Disk or template"]
 ```
 
 The [pipeline guide](../../docs/ubuntu/image-pipeline.md) explains configuration, sealing and script boundaries.
@@ -44,4 +49,5 @@ The [pipeline guide](../../docs/ubuntu/image-pipeline.md) explains configuration
 - [Development checks](../../docs/development.md): verify changes locally.
 
 Images are sealed before export. Supply deployed users and keys through cloud-init; the temporary
-build login does not survive. PDS bootstrap is [planned with the image build](../../docs/specs/0001-packer-proxmox-native-output.md#pds-provisioning-and-package-identity).
+build login does not survive. The [default recipe](recipes/default.sh) selects the shared tooling
+and policies; [custom recipes](../../docs/ubuntu/provisioning.md#choose-a-different-recipe) control those choices.

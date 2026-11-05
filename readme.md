@@ -7,6 +7,9 @@ Proxmox template path. Cloud-init supplies each deployed machine's identity and 
 
 Install the [local build prerequisites](docs/ubuntu/local-build.md#prerequisites), then run:
 
+This branch's [PDS recipe integration](docs/ubuntu/provisioning.md) requires the pending PDS feature
+release or an explicit candidate package. The last published PDS version lacks the new helpers.
+
 ```bash
 cd packer/ubuntu
 packer init .
@@ -23,7 +26,7 @@ This path needs no Proxmox server or credentials. For a native template, follow 
 | [Ubuntu](packer/ubuntu/readme.md) | Choose an output and find build, SSH, debugging and recovery guides. |
 | [Armbian](armbian-build-framework/) | Existing Rock 5A and Raspberry Pi 4B image customisations. |
 
-PDS bootstrap is [part of the expanded image-build plan](docs/specs/0001-packer-proxmox-native-output.md#pds-provisioning-and-package-identity).
+See [image recipes](docs/ubuntu/provisioning.md) for defaults, customization and deployment users.
 For contributions, see [development checks](docs/development.md) and [feature documents](docs/specs/README.md).
 
 GPLv3. See [LICENSE](LICENSE).

@@ -9,7 +9,9 @@ flowchart TD
     Build["QEMU or optional Proxmox"] --> Upload["Upload build config"]
     Upload --> Wait["Wait for cloud-init"]
     Wait --> Configure["Apply Ubuntu settings"]
-    Configure --> Seal["Seal image"]
+    Configure --> Package["Verify and install PDS package"]
+    Package --> Recipe["Run selected Bash recipe"]
+    Recipe --> Seal["Seal image"]
     Seal --> Output["Selected image output"]
 ```
 
@@ -20,8 +22,11 @@ users, SSH keys, hostname and network identity.
 ## Script responsibilities
 
 `install.sh` is an image provisioner. It stays a short Bash entrypoint with an explicit config input.
-PDS remains the standalone Bash function library. Its package installation and selected function
-calls are part of the [expanded image-build plan](../specs/0001-packer-proxmox-native-output.md#pds-provisioning-and-package-identity); the current provisioner does not implement them yet.
+PDS remains the standalone Bash function library. `install-pds.sh` verifies the package/version
+and signing-key inputs and records `/var/lib/builders/pds.json`. `run-recipe.sh` loads the installed
+library and runs the selected [image recipe](provisioning.md). Native package operations finish
+before the recipe's final SSH-policy call. The observer checks SSH service state and exports the
+journal before sealing truncates logs; it does not duplicate or reapply that policy.
 
 `wait-cloud-init.sh` uses Bash and `jq`, shared by both builders. It accepts a completed boot with
 deprecation notices only; warnings, malformed results and other failures stop the build. The current
@@ -31,7 +36,7 @@ regression tests, not for guest provisioning.
 
 `seal-image.sh` is destructive image preparation. Its explicit `--image-build` argument prevents an
 accidental invocation from immediately removing keys or resetting identity. Run it only inside a
-fresh disposable image-build guest. Packer supplies that argument in a separate final provisioner.
+fresh disposable image-build guest. Packer supplies that argument in the final provisioning step.
 The default Ubuntu account remains with an unusable password and no authorized keys. Its standard
 cloud-init sudo policy remains too, allowing the authenticated build session to request shutdown.
 Clone-time configuration must supply any usable deployed login; the image does not retain the
