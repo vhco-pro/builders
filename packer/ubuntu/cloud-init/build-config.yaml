@@ -12,7 +12,8 @@ package_upgrade: true
 # Baseline tooling from Ubuntu's default apt repos (native apt integration).
 # qemu-guest-agent is required so Proxmox can read the VM's IP. Things apt can't
 # do cleanly (third-party repos like gh/kubectl, and config/setup logic such as
-# the zsh plugins/p10k, MOTD, and hardening) come from the PDS package in issue #3.
+# the zsh plugins/p10k, MOTD, and hardening) come from the PDS package, selected by
+# recipes/default.sh.
 packages:
   - qemu-guest-agent
   - git
