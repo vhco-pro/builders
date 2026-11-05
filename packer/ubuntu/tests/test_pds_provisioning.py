@@ -125,6 +125,25 @@ else printf '%s' "${TEST_JOURNAL:-}"; fi''')
         self.assertEqual(self.calls.read_text().splitlines(), ['zi', 'zsh', 'motd vhco'])
         self.assertFalse((self.root / 'runtime/ssh-policy.json').exists())
 
+    def test_library_cannot_replace_the_builders_ssh_observer(self):
+        with self.lib.open('a') as library:
+            library.write('pds_before_ssh_policy() { :; }\n')
+        result = self.recipe(UBUNTU / 'recipes/default.sh')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue((self.root / 'runtime/ssh-policy.json').is_file())
+
+    def test_policy_change_without_observation_fails_but_unchanged_custom_passes(self):
+        self.stub('sha256sum', '''if [[ "${@: -1}" == /etc/ssh/sshd_config.d/00-pds-security.conf ]]; then
+printf '%s  %s\\n' "${TEST_POLICY_STATE:-absent}" "${@: -1}"
+else exec /usr/bin/sha256sum "$@"; fi''')
+        with self.lib.open('a') as library:
+            library.write('restricted_ssh_security_profile() { export TEST_POLICY_STATE=changed; }\n')
+        custom = self.recipe(UBUNTU / 'recipes/custom.example.sh')
+        self.assertEqual(custom.returncode, 0, custom.stderr)
+        result = self.recipe(UBUNTU / 'recipes/default.sh')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('without SSH service evidence', result.stderr)
+
     def test_missing_recipe_library_and_selected_call_fail(self):
         result = self.recipe(self.root / 'missing')
         self.assertNotEqual(result.returncode, 0)

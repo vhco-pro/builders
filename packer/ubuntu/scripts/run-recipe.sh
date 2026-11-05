@@ -14,10 +14,11 @@ chmod 0700 "$runtime"
 rm -f -- "$runtime/ssh-policy.json"
 # shellcheck source=ssh-policy-observer.sh
 source "$(dirname -- "${BASH_SOURCE[0]}")/ssh-policy-observer.sh"
-pds_before_ssh_policy() { builders_capture_ssh_policy "$runtime"; }
 # shellcheck disable=SC1090
 source "$library"
+pds_before_ssh_policy() { builders_capture_ssh_policy "$runtime"; }
+policy_before=$(builders_ssh_policy_digest)
 printf 'Applying recipe SHA256: %s\n' "$(sha256sum "$recipe" | cut -d ' ' -f1)"
 # shellcheck disable=SC1090
 source "$recipe"
-builders_check_ssh_policy "$runtime"
+builders_check_ssh_policy "$runtime" "$policy_before"

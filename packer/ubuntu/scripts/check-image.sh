@@ -82,7 +82,8 @@ for build_home in /root /home/ubuntu; do
 done
 for path in /root/.ssh/authorized_keys /home/ubuntu/.ssh/authorized_keys \
     /root/.bash_history /home/ubuntu/.bash_history /var/lib/cloud/seed \
-    /etc/ssh/sshd_config.d/50-cloud-init.conf; do
+    /etc/ssh/sshd_config.d/50-cloud-init.conf /etc/netplan/50-cloud-init.yaml \
+    /var/lib/cloud/instance /var/lib/cloud/instances; do
     require_absent "$path"
 done
 policy=/etc/ssh/sshd_config.d/00-pds-security.conf

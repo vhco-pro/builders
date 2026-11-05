@@ -1,5 +1,16 @@
 #!/usr/bin/env bash
 # Observe the service only when the selected recipe calls the shared SSH policy.
+builders_ssh_policy_digest() {
+    local policy=/etc/ssh/sshd_config.d/00-pds-security.conf digest
+    if digest=$(sha256sum "$policy" 2>/dev/null); then
+        printf '%s\n' "$digest"
+    elif [[ ! -e "$policy" ]]; then
+        printf '%s\n' absent
+    else
+        return 1
+    fi
+}
+
 builders_capture_ssh_policy() {
     local runtime="$1" snapshot cursor headers directories
     [[ ! -f "$runtime/ssh-policy.json" ]] || return 0
@@ -21,7 +32,13 @@ builders_capture_ssh_policy() {
 builders_check_ssh_policy() {
     local runtime="$1" expected actual cursor journal directories directory cursor_entry
     local files=()
-    [[ -f "$runtime/ssh-policy.json" ]] || return 0
+    if [[ ! -f "$runtime/ssh-policy.json" ]]; then
+        if [[ $# == 2 && "$2" != "$(builders_ssh_policy_digest)" ]]; then
+            printf '%s\n' 'Selected policy changed without SSH service evidence.' >&2
+            return 1
+        fi
+        return 0
+    fi
     expected=$(jq -er '.snapshot' "$runtime/ssh-policy.json") || return 1
     actual=$(systemctl show ssh.service --property=MainPID --property=ActiveEnterTimestampMonotonic --property=ExecMainStartTimestampMonotonic) || return 1
     if [[ "$expected" != "$actual" ]]; then

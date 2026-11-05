@@ -94,6 +94,12 @@ elif name == 'virt-cat':
             with self.subTest(changed=changed, present=present):
                 self.assertNotEqual(self.check_image(changed=changed, present=present).returncode, 0)
 
+    def test_cloud_init_network_and_instance_state_fail_offline_inspection(self):
+        for path in ('/etc/netplan/50-cloud-init.yaml', '/var/lib/cloud/instance',
+                     '/var/lib/cloud/instances'):
+            with self.subTest(path=path):
+                self.assertNotEqual(self.check_image(present=(path,)).returncode, 0)
+
     def test_wrong_policy_or_custom_policy_leak_fails(self):
         self.assertNotEqual(self.check_image(changed={
             '/etc/ssh/sshd_config.d/00-pds-security.conf': 'PasswordAuthentication yes\n'}).returncode, 0)
