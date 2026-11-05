@@ -8,23 +8,33 @@ fi
 image=$1 mode=$2 version=$3 expected_source=$4
 [[ -r "$image" ]]
 qemu-img info --output=json "$image" | jq -e '(.format == "qcow2" or .format == "raw") and (has("backing-filename") | not)' >/dev/null
-read_file() { virt-cat -a "$image" "$1"; }
+# Keep one read-only appliance alive for every assertion, including cleanup on failure.
+session=$(guestfish --ro -a "$image" -i --listen)
+if [[ "$session" =~ ^GUESTFISH_PID=([0-9]+)\; ]]; then
+    guestfish_pid=${BASH_REMATCH[1]}
+else
+    printf '%s\n' 'libguestfs did not return a session PID.' >&2
+    exit 1
+fi
+trap 'guestfish --remote="$guestfish_pid" exit >/dev/null' EXIT
+disk() { guestfish --remote="$guestfish_pid" "$@"; }
+read_file() { disk cat "$1"; }
 exists() {
     local result
-    result=$(guestfish --ro -a "$image" -i exists "$1")
+    result=$(disk exists "$1")
     [[ "$result" == true || "$result" == false ]] || return 2
     [[ "$result" == true ]]
 }
 require_absent() {
     local result
-    result=$(guestfish --ro -a "$image" -i exists "$1")
+    result=$(disk exists "$1")
     [[ "$result" == false ]] || { printf 'Unexpected or unreadable artifact path: %s\n' "$1" >&2; return 1; }
 }
 machine_id=$(read_file /etc/machine-id)
 [[ -z "$machine_id" ]]
 [[ "$(read_file /etc/hostname)" == localhost ]]
 [[ "$(read_file /etc/shadow | awk -F: '$1 == "ubuntu" { print $2 }')" == '*' ]]
-host_keys=$(guestfish --ro -a "$image" -i glob-expand '/etc/ssh/ssh_host_*')
+host_keys=$(disk glob-expand '/etc/ssh/ssh_host_*')
 [[ -z "$host_keys" ]]
 exists /etc/update-motd.d/90-pds
 for path in /etc/skel/.zshrc /etc/skel/.p10k.zsh; do
@@ -37,7 +47,7 @@ done
 read_file /var/lib/builders/pds.json |
     jq -e --arg version "$version" --arg source "$expected_source" '.package == "pds" and .version == $version and .source == $source' >/dev/null
 for build_home in /root /home/ubuntu; do
-    entries=$(guestfish --ro -a "$image" -i ls "$build_home")
+    entries=$(disk ls "$build_home")
     while IFS= read -r entry; do
         case "$entry" in
             ''|.bashrc|.profile|.bash_logout) ;;
@@ -46,7 +56,7 @@ for build_home in /root /home/ubuntu; do
                 [[ -z "$marker" ]]
                 ;;
             .cache)
-                cache_entries=$(guestfish --ro -a "$image" -i ls "$build_home/.cache")
+                cache_entries=$(disk ls "$build_home/.cache")
                 [[ -z "$cache_entries" || "$cache_entries" == motd.legal-displayed ]]
                 if [[ -n "$cache_entries" ]]; then
                     marker=$(read_file "$build_home/.cache/motd.legal-displayed")
@@ -63,7 +73,7 @@ for build_home in /root /home/ubuntu; do
                 [[ "$preset" == "$shared_preset" ]]
                 ;;
             .ssh)
-                ssh_entries=$(guestfish --ro -a "$image" -i ls "$build_home/.ssh")
+                ssh_entries=$(disk ls "$build_home/.ssh")
                 [[ -z "$ssh_entries" ]]
                 ;;
             *) printf 'Unexpected build-home residue: %s/%s\n' "$build_home" "$entry" >&2; exit 1 ;;
