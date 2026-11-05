@@ -36,8 +36,8 @@ variable "provisioning_recipe" {
 
 variable "pds_version" {
   type        = string
-  default     = "0.19.0"
-  description = "Exact PDS Debian version. 0.19.0 is the last published release; the combined recipe requires the pending PDS feature release or an explicit candidate."
+  default     = "0.20.0"
+  description = "Exact PDS Debian version. The default published release includes the shared image recipe helpers; explicit candidates remain available for development."
   validation {
     condition     = can(regex("^[0-9][A-Za-z0-9.+:~_-]*$", var.pds_version))
     error_message = "Set an exact Debian package version."

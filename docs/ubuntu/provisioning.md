@@ -4,10 +4,10 @@ Builders applies native Ubuntu settings, installs an exact PDS package, runs the
 recipe and seals the image. Both QEMU and native Proxmox use this sequence. PDS remains usable
 on an ordinary host independently of builders.
 
-This branch is a candidate integration. The last published PDS release, 0.19.0, lacks the new image
-helpers. Until the dependent PDS change is reviewed and separately released, use the explicit
+The default build pins published PDS 0.20.0 and installs it from the signed repository. Explicit
+pre-release testing remains available through the
 [candidate-package route](../../packer/ubuntu/pds/readme.md). A missing selected function stops
-the build. A candidate build does not establish that the future signed release works.
+the build. Candidate-package evidence is recorded separately from signed-release validation.
 
 ## Default selections
 
