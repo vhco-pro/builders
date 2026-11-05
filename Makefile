@@ -17,7 +17,7 @@ check-shell:
 	zsh -dfn packer/ubuntu/scripts/check-user-shell.zsh
 
 check-tests:
-	python3 -B -m unittest discover -s packer/ubuntu/tests -v
+	PACKER="$(PACKER)" python3 -B -m unittest discover -s packer/ubuntu/tests -v
 
 check-image:
 	bash packer/ubuntu/scripts/check-image.sh "$(IMAGE)" "$(RECIPE)" "$(PDS_VERSION)" "$(PDS_SOURCE)"

@@ -1,6 +1,7 @@
 """Check image-step inputs and refusal of accidental sealing without host writes."""
 import json
 import os
+import shutil
 from pathlib import Path
 import subprocess
 import tempfile
@@ -10,6 +11,27 @@ SCRIPTS = Path(__file__).resolve().parents[1] / 'scripts'
 
 
 class ImageSteps(unittest.TestCase):
+    def test_unreadable_recipe_is_rejected_before_building(self):
+        if os.geteuid() == 0:
+            self.skipTest('Root can read a mode-000 fixture; use an unprivileged caller.')
+        packer = shutil.which(os.environ.get('PACKER', 'packer'))
+        if not packer:
+            self.skipTest('Packer is required for the real input-validation check.')
+        with tempfile.TemporaryDirectory() as tmp:
+            recipe = Path(tmp) / 'recipe.sh'
+            recipe.write_text('#!/usr/bin/env bash\n:\n')
+            recipe.chmod(0)
+            try:
+                result = subprocess.run(
+                    [packer, 'validate', '-only=qemu.ubuntu',
+                     '-var', f'provisioning_recipe={recipe}', '.'],
+                    cwd=SCRIPTS.parent, text=True, capture_output=True, timeout=60,
+                )
+            finally:
+                recipe.chmod(0o600)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('readable Bash recipe', result.stdout + result.stderr)
+
     def test_install_uses_the_supplied_config(self):
         with tempfile.TemporaryDirectory() as tmp:
             directory = Path(tmp)

@@ -95,8 +95,18 @@ distinct values in the final matrix. Absence of a client ID is a failed observat
 
 For at least one default instance per output, record `/proc/sys/kernel/random/boot_id`, reboot only
 that owned instance, then wait for a different boot ID and completed cloud-init. Require the same
-machine ID, DHCP client ID and SSH host keys, successful non-root key login and the expected SSH
-settings afterward. Retain `systemd-machine-id-commit.service` result/state. Distinct first-boot IDs
+machine ID, DHCP client ID and every host-key fingerprint, successful non-root key login and the
+expected SSH settings afterward. Record each key type separately before and after:
+
+```bash
+for key in /etc/ssh/ssh_host_*_key.pub; do
+  printf '%s ' "${key##*/}"
+  ssh-keygen -lf "$key"
+done
+```
+
+Retain `systemd-machine-id-commit.service` result/state. An inactive unit with `Result=success` only
+records no failure; its conditions may have skipped execution. Distinct first-boot IDs
 do not establish that those IDs survive reboot.
 
 ## Exercise the exact update job
@@ -137,7 +147,7 @@ uses the normal key-only user-data.
 Create `10-builders-test-permissive.conf` inside the fixture with `PasswordAuthentication yes`,
 `KbdInteractiveAuthentication yes`, `PubkeyAuthentication yes` and `PermitRootLogin yes`.
 Keep the baked `00-pds-security.conf` in place first and check `sshd -T`: its restrictions must win.
-Temporarily hold only that PDS file outside the included configuration directory, run `sshd -t` and
+Temporarily hold only that PDS file outside the included `*.conf` glob, run `sshd -t` and
 reload SSH inside the owned fixture. Require these positive controls to authenticate:
 
 - Non-root password: disable public-key and keyboard-interactive fallback in the client.
@@ -169,6 +179,10 @@ After each pair, remove only its verified guests, exact matching snippets/ISOs a
 Compare transferred archive checksums on both machines before removing an owned runner. Remove the
 verified test templates/base, temporary API identity and approved empty snippet-only storage last.
 Confirm the original storage configurations are unchanged and no owned guest, volume, seed, export
-or API account remains. Retain command exits, ownership records and the final comparison results.
+or API account remains. Retain the observed post-cleanup guest hashes and power states and normalized
+storage hashes beside the preflight values, then derive the summary from those comparisons. A boolean
+written after an assertion is not a substitute for the observed values. Record the observation time;
+matching endpoints do not attribute unrelated activity between snapshots. Retain command exits,
+ownership records and the comparison inputs/results.
 A failed build or interrupted controller requires inspection of its recorded partial resources;
 it does not authorize deleting unrelated guests.

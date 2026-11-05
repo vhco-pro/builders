@@ -29,7 +29,7 @@ variable "provisioning_recipe" {
   default     = "recipes/default.sh"
   description = "Trusted Bash recipe selecting PDS functions. Native settings and sealing always run."
   validation {
-    condition     = fileexists(var.provisioning_recipe)
+    condition     = can(file(var.provisioning_recipe))
     error_message = "Select an existing readable Bash recipe before starting a build."
   }
 }

@@ -13,7 +13,13 @@ inputs and refusal of accidental sealing. Packer validation fetches upstream che
 needs network access. These checks also exercise package identity/trust refusals, default/custom
 recipe selection, selected-call failures, SSH service observation and negative artifact fixtures.
 They do not contact Proxmox or replace live image/clone tests. The read-only PR workflow runs the
-same `make check` target and reports the real-build checks as skipped.
+same `make check` target and reports the real-build checks as skipped. The real recipe-readability
+regression needs an unprivileged caller: root can read its mode-000 fixture, so a root container
+explicitly skips that case. Run it separately as the build user with Packer available:
+
+```bash
+PACKER=packer python3 -B -m unittest discover -s packer/ubuntu/tests -p test_image_steps.py -k unreadable -v
+```
 
 After a real build, inspect its unbooted disk with libguestfs installed:
 
