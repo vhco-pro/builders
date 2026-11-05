@@ -31,7 +31,7 @@ kubectl() {
 }
 '''
             command = setup + change + '\nsource ' + shlex.quote(str(SCRIPT)) + ' ' + mode
-            result = subprocess.run(['zsh', '-dfc', command], text=True, capture_output=True,
+            result = subprocess.run(['zsh', '-dflic', command], text=True, capture_output=True,
                                     timeout=10, env={**os.environ, 'HOME': tmp,
                                                      'TEST_CALLS': str(log), 'TEST_FAIL': fail})
             return result, log.read_text().splitlines() if log.exists() else []
