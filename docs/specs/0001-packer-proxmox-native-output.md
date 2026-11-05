@@ -1,6 +1,6 @@
 ---
-status: in-progress
-status_description: "Controlled builds, eight deployments and cleanup pass; Opus R-29 marks all 15 criteria met with no findings, and PR delivery/CI and owner merge review remain pending."
+status: complete
+status_description: "All 15 criteria are met with clean independent Opus R-29 acceptance; controlled builds, eight deployments and cleanup pass. Owner merge review remains pending."
 issue: https://github.com/vhco-pro/builders/issues/1
 goal: "Build customizable Ubuntu images with PDS bootstrap and opinionated update/SSH defaults, as optional Proxmox templates or standalone qcow2/raw disks."
 covers:
@@ -828,7 +828,8 @@ local commit. No branch push, merge or release is implied by a task tick.
 
 - [x] T31 `packer/ubuntu/cloud-init/build-config.yaml` and `docs/validation/0001-2026-11-05.md` replace the stale issue reference with the active PDS recipe, prove unchanged parsed cloud-init data, and record the current-head controlled matrix and cleanup (AC-07, AC-12).
       Evidence: the full 9f4db43 matrix, R-27 and raw post-cleanup comparison pass; PyYAML parsing of the old/new build-config produces identical values. The only image-input change is a comment; the dated validation record preserves that boundary.
-- [ ] T32 `docs/specs/0001-packer-proxmox-native-output.md` retain the independent follow-up at the comment-corrected commit, check the completion gate, and update PR #4 with CI for its pushed commit; preserve owner-only merge and draft-guide boundaries (AC-07, AC-12).
+- [x] T32 `docs/specs/0001-packer-proxmox-native-output.md` retain the independent follow-up at the comment-corrected commit, check the completion gate, and update PR #4 with CI for its pushed commit; preserve owner-only merge and draft-guide boundaries (AC-07, AC-12).
+      Evidence: R-29 at 86f740b returns all 15 criteria met and no findings; verbatim review check, lint and freshness pass. PR #4 is updated at 58595e1 and hosted CI 42121748326 succeeds. The completion commit receives normal CI before handoff; merge and homelab publication remain withheld.
 
 ## Open Questions
 
