@@ -54,7 +54,11 @@ if [[ "$1" == --output ]]; then touch "$2"; break; fi; shift
 done; fi''')
         self.stub('systemctl', '''if [[ "$1" == is-active ]]; then exit 0; fi
 printf 'MainPID=%s\\nActiveEnterTimestampMonotonic=100\\nExecMainStartTimestampMonotonic=99\\n' "$TEST_PID"''')
-        self.stub('journalctl', '''if [[ "$*" == *--show-cursor* ]]; then echo '-- cursor: fixture-cursor'
+        self.stub('journalctl', '''if [[ "${TEST_JOURNAL_AVAILABLE:-1}" == 0 ]]; then
+echo 'No journal files were found.' >&2; echo '-- No entries --'; exit 0
+fi
+if [[ "$*" == *--header* ]]; then echo 'File path: /var/log/journal/0123456789abcdef0123456789abcdef/system.journal'
+elif [[ "$*" == *--show-cursor* ]]; then echo '-- cursor: fixture-cursor'
 else printf '%s' "${TEST_JOURNAL:-}"; fi''')
 
     def stub(self, name, body):
@@ -136,6 +140,11 @@ else printf '%s' "${TEST_JOURNAL:-}"; fi''')
         for action in ('export TEST_PID=456', "export TEST_JOURNAL='Reloaded OpenBSD Secure Shell server.'"):
             recipe.write_text(f'restricted_ssh_security_profile\n{action}\nrestricted_ssh_security_profile\n')
             self.assertNotEqual(self.recipe(recipe).returncode, 0)
+
+    def test_missing_journal_evidence_cannot_pass_as_an_empty_interval(self):
+        recipe = self.root / 'lost-journal.sh'
+        recipe.write_text('restricted_ssh_security_profile\nexport TEST_JOURNAL_AVAILABLE=0\n')
+        self.assertNotEqual(self.recipe(recipe).returncode, 0)
 
 
 if __name__ == '__main__':
