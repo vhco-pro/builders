@@ -53,5 +53,6 @@ docker run --rm -v "$PWD:/work:ro" ubuntu:24.04 bash -c \
 
 Local checks do not establish that an image boots or that a Proxmox clone has a new identity.
 Use disposable artifacts and recorded unused VM IDs for live tests; preserve existing guests.
-The [validation summary](validation/0001-2026-11-04.md) separates observed build/clone results from
-independent review and records the current verification limits.
+The [PDS integration validation](validation/0001-2026-11-05.md) separates observed candidate builds
+from independent review and the pending signed-release checks. The
+[earlier bootstrap/CPU validation](validation/0001-2026-11-04.md) records the preceding iteration.
