@@ -69,7 +69,9 @@ the public fixture and repository as shown; no host devices or host machine ID a
 ## Live checks
 
 Local checks do not establish that an image boots or that a Proxmox clone has a new identity.
-Use disposable artifacts and recorded unused VM IDs for live tests; preserve existing guests.
+Use disposable artifacts and recorded unused VM IDs for live tests; preserve existing guests. Follow
+the [bounded live-validation procedure](ubuntu/live-validation.md) for resource baselines, both
+deployment paths, exact update/authentication probes, reboot persistence and ownership-limited cleanup.
 The [PDS integration validation](validation/0001-2026-11-05.md) records candidate attempts, the
 published-release build and eight-instance matrix, and the independent review boundary. The
 [earlier bootstrap/CPU validation](validation/0001-2026-11-04.md) records the preceding iteration.

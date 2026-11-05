@@ -24,7 +24,8 @@ template can still be used directly in Proxmox; rebuild it only if it is missing
 ## Import a retained base bundle
 
 Use a Linux machine with Bash, OpenSSH client and sha256sum. Packer, libguestfs and the Fedora user
-configuration are not needed for this path. Retrieve the saved source revision and bundle, verify
+configuration are not needed for this path. For rebuilding the provisioned images afterward, also retain
+the exact PDS release package and digest as [described here](../../packer/ubuntu/pds/readme.md#retain-reproducible-package-inputs). Retrieve the saved source revision and bundle, verify
 the Proxmox SSH host key through the trusted recovery record, and configure the recovered SSH
 identity using normal OpenSSH configuration. Do not disable host-key checking.
 
