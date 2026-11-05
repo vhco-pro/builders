@@ -4,6 +4,9 @@ set -euo pipefail
 
 [[ $# == 2 ]] || { printf '%s\n' 'Usage: install-pds.sh <settings.json> <inputs-directory>' >&2; exit 2; }
 settings=$1 inputs=$2
+for tool in jq dpkg dpkg-deb dpkg-query gpg sha256sum apt-get; do
+    command -v "$tool" >/dev/null || { printf 'Missing native PDS bootstrap prerequisite: %s\n' "$tool" >&2; exit 1; }
+done
 version=$(jq -er '.version | strings | select(test("^[0-9][A-Za-z0-9.+:~_-]*$"))' "$settings")
 repository=$(jq -er '.repository | strings | select(test("^https://[^[:space:]]+/$"))' "$settings")
 fingerprint=$(jq -er '.key_fingerprint | strings | select(test("^[A-F0-9]{40}$"))' "$settings")

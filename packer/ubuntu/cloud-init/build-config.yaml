@@ -20,6 +20,8 @@ packages:
   - nmap
   - nfs-common
   - curl
+  - ca-certificates
+  - gpg
   - file
   - build-essential
   - zsh
