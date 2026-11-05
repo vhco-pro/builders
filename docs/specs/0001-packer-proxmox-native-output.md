@@ -1,6 +1,6 @@
 ---
 status: in-progress
-status_description: "Controlled current-head builds, eight deployments and cleanup pass; Opus R-27 marks all criteria met, with one comment nit awaiting correction and owner merge review pending."
+status_description: "Controlled current-head builds, eight deployments and cleanup pass; Opus R-27 marks all criteria met, the comment nit is corrected, and final review/delivery remain pending."
 issue: https://github.com/vhco-pro/builders/issues/1
 goal: "Build customizable Ubuntu images with PDS bootstrap and opinionated update/SSH defaults, as optional Proxmox templates or standalone qcow2/raw disks."
 covers:
