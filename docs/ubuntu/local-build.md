@@ -8,8 +8,8 @@ base template, Terraform or Stackweaver.
 Install [Packer](https://developer.hashicorp.com/packer/install), `qemu-system-x86_64` (or the target architecture's equivalent), `qemu-img`,
 and `genisoimage` or `xorriso`. The default amd64 build uses KVM; use TCG for software emulation when
 KVM is unavailable. The guest needs access to Ubuntu/PDS package repositories and the selected
-recipe's upstream downloads. This branch needs the pending PDS feature release or an explicit
-[candidate package](../../packer/ubuntu/pds/readme.md); published PDS 0.19.0 lacks the new helpers.
+recipe's upstream downloads. The default uses the pinned PDS release from the signed repository;
+[candidate packages](../../packer/ubuntu/pds/readme.md) require an explicit version and digest.
 
 Initialize the pinned plugins from the repository root. The template declares both plugins;
 installing them does not require a Proxmox server or credentials.

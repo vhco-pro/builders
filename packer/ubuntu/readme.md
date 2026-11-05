@@ -10,8 +10,8 @@ that fits the target machine.
 
 ## Build
 
-This branch needs the pending PDS feature release or an explicit candidate package; see the
-[recipe guide](../../docs/ubuntu/provisioning.md) before running a build.
+The build installs the pinned PDS release from its signed repository. See the
+[recipe guide](../../docs/ubuntu/provisioning.md) for defaults and customization.
 
 With the [local prerequisites](../../docs/ubuntu/local-build.md#prerequisites) installed, start from the repository root:
 

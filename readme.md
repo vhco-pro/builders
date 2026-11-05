@@ -5,8 +5,8 @@ Proxmox template path. Cloud-init supplies each deployed machine's identity and 
 
 ## Build an Ubuntu image
 
-This branch's [PDS recipe integration](docs/ubuntu/provisioning.md) requires the pending PDS feature
-release or an explicit candidate package. The last published PDS version lacks the new helpers.
+The [PDS recipe integration](docs/ubuntu/provisioning.md) installs an exact published package from
+the signed repository. The recipe guide covers customization and explicit candidate testing.
 
 Install the [local build prerequisites](docs/ubuntu/local-build.md#prerequisites), then run:
 

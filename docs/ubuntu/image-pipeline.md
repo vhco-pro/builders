@@ -37,6 +37,9 @@ regression tests, not for guest provisioning.
 `seal-image.sh` is destructive image preparation. Its explicit `--image-build` argument prevents an
 accidental invocation from immediately removing keys or resetting identity. Run it only inside a
 fresh disposable image-build guest. Packer supplies that argument in the final provisioning step.
+Before clearing the machine ID, it runs `systemd-machine-id-setup --commit` to persist and unmount
+a transient read-only ID left by early boot. The command is a no-op for a persistent ID; see the
+[systemd reference](https://www.freedesktop.org/software/systemd/man/258/systemd-machine-id-setup.html#--commit).
 The default Ubuntu account remains with an unusable password and no authorized keys. Its standard
 cloud-init sudo policy remains too, allowing the authenticated build session to request shutdown.
 Clone-time configuration must supply any usable deployed login; the image does not retain the

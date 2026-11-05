@@ -4,14 +4,13 @@ The canonical lifecycle is vh-adlc at the revision pinned in [AGENTS.md](../../A
 Each feature has one document containing its scope, criteria, test plan, tasks, questions and reviews.
 Use the shared vh-adlc reviewer; do not replace independent review with the implementing agent's assessment.
 
-The existing files retain their paths and issue links. They are imported as drafts with unchecked
-criteria because no current framework acceptance or committed implementation review exists. Earlier
-implementation and test history remains in the documents and Git history. No completion is inferred
-from the migration. The current drafts must not be committed or published before owner review.
+Feature #1 has an accepted spec and is in progress. Its dated validation and independent review
+records distinguish observed tests from acceptance. Feature #2 retains its wider draft scope; #3 is
+superseded by #1. Earlier implementation and review history remains in the documents and Git history.
 
 | Issue | Feature | Status |
 | --- | --- | --- |
-| #1 | [Ubuntu images and PDS bootstrap](0001-packer-proxmox-native-output.md) | draft |
+| #1 | [Ubuntu images and PDS bootstrap](0001-packer-proxmox-native-output.md) | in-progress |
 | #2 | [Image test harness](0002-image-build-testing.md) | draft |
 | #3 | [PDS delivery folded into #1](0003-pds-provisioning-migration.md) | superseded |
 
