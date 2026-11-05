@@ -796,7 +796,7 @@ local commit. No branch push, merge or release is implied by a task tick.
       Evidence: builders guest provisioners at e5cf7b3 and explicit PDS candidate 1.0.0, SHA256 744343e157c8d0b297daf8633fb9623839bbd4734c89f384f7c0208cc141d3ba. Both native and both portable recipes built successfully; all four passed read-only inspection and both portable qcow2/raw pairs compare equal. Eight final fresh instances passed selected shell/tooling, distinct identities, isolated keys and MOTD checks. Both default outputs passed real authentication controls and cron-environment execution. The final audit removed all owned instances/build resources, volumes, seeds/snippets, temporary storage and API identities; all seven originals and original storage settings were preserved. Storage content-list ordering was normalized only after exact original-hash reconstruction proved no setting changed. Failed attempts and signed-release limitations remain in docs/validation/0001-2026-11-05.md; the future signed PDS route is not claimed as verified.
 - [x] T21 `readme.md`, `packer/ubuntu/readme.md`, `docs/ubuntu/`, `docs/development.md` align the short entry points and task guides with observed commands, recipes, branded MOTDs and validation limits; links/examples check cleanly and independent final implementation review targets the committed source (AC-07, AC-13, AC-15).
       Evidence: all 44 builders checks, the real disposable sealing regression and all 27 PDS package/build-target checks pass. Both Mermaid diagrams render in Chromium and Firefox, and the linked procedures resolve. R-21 targets committed builders d9282b4 and PDS 92cd558; its returned records are retained exactly. The current test count/source description and Review Log/Sources placement repair its two documentation nits.
-      Review limits: R-18's fail-fast shell, build-home cleanup and expected-package-source repairs are independently reviewed. R-19's workflow-only PR trigger nit is repaired; the older helper remains documented outside this integration. R-20 returned no source findings but its Docker execution was denied, so it is not independent runtime proof. Feature status remains in-progress for owner review, the future signed-release route and independent runtime acceptance. No merge, release or homelab publication is authorized.
+      Review limits: R-18's fail-fast shell, build-home cleanup and expected-package-source repairs are independently reviewed. R-19's workflow-only PR trigger nit is repaired; the older helper remains documented outside this integration. R-20 returned no source findings but its Docker execution was denied, so it is not independent runtime proof. Feature status remains in-progress for owner review, the future signed-release route and independent runtime acceptance. No merge, release or homelab publication is authorized. R-23 verifies the final README/CI-evidence repairs at fcd9b0c with no findings; its records remain verbatim. Hosted builders checks pass after the step-scoped read-only plugin authentication repair.
 
 ## Open Questions
 
@@ -829,6 +829,7 @@ None.
 | 2026-11-05 | R-20 | implementation | `8b56679c7f424332e7c908c4c1262738ea33743f` | claude-opus-5-5 | procedural | No source findings; Docker execution denied, live/release criteria remain unverified by reviewer. |
 | 2026-11-05 | R-21 | implementation | `d9282b4051a9613bd2569d4c38859073865321a8` | claude-opus-5-5 | procedural | No CI-repair code defect; two documentation nits, with live/release proof still incomplete. |
 | 2026-11-05 | R-22 | implementation | `0437db7561f74c41d797201f9a7d05a42be0e742` | claude-opus-5-5 | procedural | No CI-authentication code defect; two documentation nits, with runtime/release acceptance still open. |
+| 2026-11-05 | R-23 | implementation | `fcd9b0c00ea2cb3ecb76ae890e79ded24b1fa837` | claude-opus-5-5 | procedural | R-22 documentation repairs verified; no findings, with independent runtime/release acceptance still open. |
 
 ### R-1
 
@@ -2005,6 +2006,70 @@ SEVERITY: nit
 WHERE: readme.md Build an Ubuntu image
 EVIDENCE: readme.md:8 ends with "then run:", but lines 10 and 11 are a separate PDS-release paragraph, and the command block only starts at line 13.
 PROPOSAL: Move the PDS-release paragraph above the "then run:" sentence or below the code block, so the colon leads straight into the commands.
+
+### R-23
+
+CRITERION: AC-01 A committed `create-base-template.sh` turns the official Ubuntu cloud image into a base cloud-init template on the PVE host (qemu-guest-agent embedded), repeatably; no hand-clicking.
+VERDICT: not verified
+EVIDENCE: `git rev-parse HEAD` printed fcd9b0c00ea2cb3ecb76ae890e79ded24b1fa837 in builders and 92cd5581a595d000f2213a63f51df4ee52f086e6 in PDS. `git status --porcelain` printed nothing in either tree. `git diff --stat eca48c2 fcd9b0c` lists only .github/workflows/check.yaml, the feature document, docs/validation/0001-2026-11-05.md, packer/ubuntu/readme.md and readme.md, so the base-template scripts are unchanged. After those commands Bash was denied, so I ran no test, binary or container. No bootstrap, import, repeat import or occupied-ID refusal ran. The pass in the validation summary was observed by the implementer.
+
+CRITERION: AC-02 `packer init .` installs both `hashicorp/proxmox` (`1.2.4`) and `hashicorp/qemu` plugins.
+VERDICT: not verified
+EVIDENCE: Makefile:6-7 runs `cd packer/ubuntu && $(PACKER) init .`. check.yaml:21-23 passes `PACKER_GITHUB_API_TOKEN: ${{ github.token }}` to `make init` only. Lines 8 to 14 of /tmp/builders-recipe-20261105/builders-plugin-rate-limit-ci.log show the earlier hosted init failing with a 403 rate limit on packer-plugin-proxmox, a HINT to set PACKER_GITHUB_API_TOKEN, and `make: *** [Makefile:7: init] Error 1`. I did not run packer init. Validation summary line 54 says the next hosted builders run has not executed yet, so no successful init after the repair was observed.
+
+CRITERION: AC-03 `packer build -only='proxmox-clone.ubuntu' …` clones the base and produces a **template** on the PVE node (verified via `qm config <vmid>` showing `template: 1`) with an **empty cloud-init drive** attached; no per-build `qm importdisk`/upload anywhere in the flow. The native CPU model defaults to `host` and is configurable; the template and two fresh clones use the selected default, and blank or whitespace-padded model names fail local validation.
+VERDICT: not verified
+EVIDENCE: The diff since eca48c2 does not touch packer/ubuntu sources. No native build, `qm config` check, clone or CPU validation was run or observed. Validation summary lines 65 to 66 report that both native builds, their inspections and their fresh instances passed. The implementer observed these. This is a composite criterion and no part of it was executed here.
+
+CRITERION: AC-04 `packer build -only='qemu.ubuntu' …` still produces the local qcow2/raw artifact.
+VERDICT: not verified
+EVIDENCE: The qemu source and export script are unchanged since eca48c2. No portable build, raw export or format comparison was run. Summary lines 67 to 68, "Passed; formats compare equal", report the implementer's results.
+
+CRITERION: AC-05 Both native and portable sealed outputs contain no site-specific hostname, static IP/netplan identity or SSH host keys; two independently initialized instances of each output receive distinct machine IDs and host keys and apply their supplied identities.
+VERDICT: not verified
+EVIDENCE: No sealed disk was inspected and no instance was booted. Summary lines 83 to 85 report distinct machine IDs, host keys, DHCP identities and hostnames across eight instances. The implementer observed these.
+
+CRITERION: AC-06 The sealed image retains no build password, authorized keys or generated SSH policy override. The default Ubuntu account may remain only locked and keyless, with its standard sudo policy. Usable deployed users, keys and site-specific identity are supplied at clone time; the default recipe's PDS SSH baseline remains effective after fresh cloud-init initialization.
+VERDICT: not verified
+EVIDENCE: tests/test_sealing.sh, the unit fixtures and check-image.sh did not run. Their sources are unchanged since eca48c2. No sealed output was inspected and no fresh instance was observed. Summary lines 24 to 25 and 85 to 86 report passing sealing and authentication checks. The implementer reported these.
+
+CRITERION: AC-07 Short root and Ubuntu READMEs link canonical procedures for both output selections, PDS bootstrap, SSH/debugging and recovery; small flow diagrams use Mermaid and Proxmox is explicitly optional.
+VERDICT: met
+EVIDENCE: I read readme.md and packer/ubuntu/readme.md at fcd9b0c in a clean tree. Glob confirms these relative targets exist: docs/ubuntu/local-build.md, provisioning.md, proxmox.md, image-pipeline.md, ssh-and-debugging.md and recovery.md, plus docs/development.md, docs/specs/README.md, LICENSE, armbian-build-framework/, packer/ubuntu/proxmox.auto.pkrvars.hcl.example and recipes/default.sh. Grep shows the anchors #prerequisites at local-build.md:6 and #choose-a-different-recipe at provisioning.md:43. A Mermaid block is at packer/ubuntu/readme.md:35. readme.md:3-4 says "optional native Proxmox template path", and readme.md:19 says "This path needs no Proxmox server or credentials". Packer/ubuntu/readme.md:3 says "Proxmox is optional". The delta since eca48c2 only moves the PDS caveat paragraph, at readme.md:8-9 and packer/ubuntu/readme.md:13-14, above the prerequisites sentence. Both colons, at readme.md:11 and packer/ubuntu/readme.md:16, now lead straight into the command blocks, and no link was lost. Limitations: this was inspection only. I did not render the diagrams or follow the guides.
+
+CRITERION: AC-08 Both builders install the exact selected PDS package, verify its identity and provenance, and fail on missing, mismatched or untrusted inputs; candidate-package testing is distinguished from a verified signed-repository release build.
+VERDICT: not verified
+EVIDENCE: No package was hashed or extracted, and no built output's dpkg metadata, provenance or APT sources were inspected. Validation summary lines 9 to 14 and 109 to 112 label 744343e1... as a test package and keep the signed-release route and AC-08 open. The implementer wrote these statements.
+
+CRITERION: AC-09 The shared provisioner applies native Ubuntu settings and the default recipe's explicit PDS function selection for Zi/Powerlevel10k, MOTD, GitHub CLI, kubectl, Krew, neat/view-secret/stern, nightly package updates and restricted SSH; reusable implementations live in the standalone PDS package, and selected-function failures stop provisioning.
+VERDICT: not verified
+EVIDENCE: The diff since eca48c2 confirms that the provisioners and recipes are unchanged. Neither the builders suite nor the PDS suite ran, and no real provisioning or injected failure was observed.
+
+CRITERION: AC-10 A new deployment user of a default-recipe image receives working Zsh/Powerlevel10k, the kubectl alias/completion, Krew and the neat, view-secret and stern plugins from either output, with its configured Zsh login shell and sudo policy and without inheriting build credentials or build-home paths. Zi populates the existing plugin set on first shell startup with network access; no image-prefetched plugin cache is required.
+VERDICT: not verified
+EVIDENCE: No fresh instance was booted, and no Zi download, completion or Krew plugin run was observed. Summary line 83 reports that all eight instances passed the fresh-user shell and tool checks. The implementer made this claim.
+
+CRITERION: AC-11 The PDS package loads non-interactively without installer/network side effects, preserves the caller's shell state and reports library failures; its supported standalone setup preserves Zi, the preset and the existing plugin set. Error-reporting assertions cover explicit non-interactive loading; interactive auto-loading is documented separately.
+VERDICT: not verified
+EVIDENCE: The PDS tree is clean at 92cd558, but its package suite did not run. Summary lines 26 to 33 report 25 installed-package tests plus 2 target tests, and a passing hosted PDS run. The implementer reported these, and I did not observe them.
+
+CRITERION: AC-12 Repository checks exercise package-backed provisioning, failure paths, sealed-artifact assertions and two fresh boots of each Ubuntu amd64 output; CI reports executed versus skipped checks, and native checks preserve all pre-existing guests.
+VERDICT: not verified
+EVIDENCE: The only workflow change since eca48c2 is check.yaml:22-23, which adds an `env` block to the `make init` step. Global `permissions: contents: read` (lines 6 to 7) is unchanged, and checkout still sets `persist-credentials: false` (line 15). The triggers are `pull_request` and a main `push`, not `pull_request_target`. Both actions are pinned to full SHAs. The token is scoped to the step that runs only `packer init` (Makefile:7), so neither `make check` nor plugin execution sees it. I found no permission, exposure or trigger defect. The Makefile:10 SKIP line reports the skipped checks. I did not run `make check`, Actionlint or the scope assertion. No hosted run after the repair was observed, and validation line 54 says none has executed. No fresh boot or guest-preservation audit was observed.
+
+CRITERION: AC-13 PDS bundles selectable VHCO, Stackweaver and preserved EdgeForge MOTD text presets; builders defaults to configurable VHCO, custom-file usage remains supported, and invalid selections leave the active MOTD and other MOTD scripts unchanged.
+VERDICT: not verified
+EVIDENCE: test_motd_presets did not run, and no banner was checked in either output. Summary lines 87 to 88 report that the custom outputs kept their MOTD setup. The implementer made this claim.
+
+CRITERION: AC-14 Both image outputs built with the default recipe retain one configured nightly midnight package-update job that runs non-interactively with an enabled scheduler and effective SSH settings that allow injected non-root public-key login while disabling password, keyboard-interactive and root login; repeated provisioning is safe and temporary Packer access is removed only after it is no longer needed.
+VERDICT: not verified
+EVIDENCE: No scheduler state, cron-environment run, journal interval or authentication control was observed. Summary lines 76 to 79 and 85 to 87 report that both default outputs passed. The implementer made this claim.
+
+CRITERION: AC-15 An operator can select a readable custom Bash recipe at invocation for either output without editing the default recipe or PDS; omitted PDS update/SSH policies are not applied elsewhere, missing recipes and failed calls stop the build, and generic-image cleanup still runs.
+VERDICT: not verified
+EVIDENCE: The unit tests and Packer validation did not run, and no custom build or instance was observed. Summary lines 66, 68 and 87 to 88 report custom native and portable passes with no PDS SSH policy or update job. The implementer made this claim.
+
+NO FINDINGS
 
 ## Sources
 
