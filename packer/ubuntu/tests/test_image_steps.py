@@ -23,6 +23,9 @@ with open(os.environ['TEST_CALLS'], 'a') as log:
     log.write(json.dumps(sys.argv[1:]) + '\\n')
 ''')
             stub.chmod(0o755)
+            apt = directory / 'apt-get'
+            apt.write_text('#!/bin/bash\nexit 0\n')
+            apt.chmod(0o755)
             env = {**os.environ, 'PATH': f'{directory}:/usr/bin:/bin', 'TEST_CALLS': str(calls)}
             for args in ([], [str(directory / 'missing.yaml')]):
                 with self.subTest(args=args):

@@ -42,12 +42,16 @@ restricted_ssh_security_profile() { pds_before_ssh_policy; record ssh; }
                     'TEST_PACKAGE': 'pds', 'TEST_VERSION': '1.0.0',
                     'TEST_INSTALLED_VERSION': '1.0.0', 'TEST_PID': '123'}
         self.stub('apt-get', 'printf "apt %s\\n" "$*" >> "$TEST_CALLS"')
+        self.stub('dpkg', 'echo amd64')
         self.stub('install', 'printf "install %s\\n" "$*" >> "$TEST_CALLS"')
-        self.stub('dpkg-deb', '''printf '%s\\n' "$TEST_PACKAGE" "$TEST_VERSION" all''')
+        self.stub('dpkg-deb', '''case "${@: -1}" in
+Package) echo "$TEST_PACKAGE";; Version) echo "$TEST_VERSION";; Architecture) echo all;; esac''')
         self.stub('dpkg-query', '''printf 'install ok installed\\t%s\\tall\\n' "$TEST_INSTALLED_VERSION"''')
         self.stub('gpg', '''if [[ "$*" == *--show-keys* ]]; then
-printf 'fpr:::::::::%s:\\n' "$TEST_FINGERPRINT"
-else touch "${@: -1}"; fi''')
+printf 'pub::::::::::\\nfpr:::::::::%s:\\n' "$TEST_FINGERPRINT"
+else while [[ $# -gt 0 ]]; do
+if [[ "$1" == --output ]]; then touch "$2"; break; fi; shift
+done; fi''')
         self.stub('systemctl', '''if [[ "$1" == is-active ]]; then exit 0; fi
 printf 'MainPID=%s\\nActiveEnterTimestampMonotonic=100\\nExecMainStartTimestampMonotonic=99\\n' "$TEST_PID"''')
         self.stub('journalctl', '''if [[ "$*" == *--show-cursor* ]]; then echo '-- cursor: fixture-cursor'

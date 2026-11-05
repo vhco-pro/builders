@@ -7,6 +7,10 @@ if [[ $# -ne 1 || "${1:-}" != --image-build ]]; then
     exit 2
 fi
 
+# shellcheck source=ssh-policy-observer.sh
+source "$(dirname -- "${BASH_SOURCE[0]}")/ssh-policy-observer.sh"
+builders_check_ssh_policy /run/builders
+
 # The build login must not survive in the exported disk.
 usermod --password '*' ubuntu
 rm -f /home/ubuntu/.ssh/authorized_keys /root/.ssh/authorized_keys
@@ -21,10 +25,12 @@ ln -s /etc/machine-id /var/lib/dbus/machine-id
 printf '%s\n' localhost > /etc/hostname
 sed -i '/^127[.]0[.]1[.]1[[:space:]]/d' /etc/hosts
 
-apt-get -y autoremove
 apt-get clean
 rm -rf /var/lib/apt/lists/*
 rm -f /var/lib/systemd/random-seed
+# Export the journal before truncating logs. No package operations run after policy.
+builders_check_ssh_policy /run/builders
 find /var/log -type f -exec truncate --size=0 {} \;
 rm -f /root/.bash_history /home/ubuntu/.bash_history /root/.wget-hsts
 rm -rf /tmp/* /var/tmp/*
+rm -f /run/builders/ssh-policy.json

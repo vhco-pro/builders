@@ -85,8 +85,7 @@ build {
     "source.proxmox-clone.ubuntu",
   ]
 
-  # Native OS configuration is applied through cloud-init for both outputs.
-  # PDS tooling remains a separate, pinned-package integration.
+  # Both outputs share native settings, selected PDS functions, then sealing.
   provisioner "file" {
     source      = "cloud-init/build-config.yaml"
     destination = "/tmp/build-config.yaml"
@@ -99,13 +98,44 @@ build {
   }
 
   provisioner "shell" {
-    execute_command = "sudo -n bash '{{ .Path }}' /tmp/build-config.yaml"
-    script          = "scripts/install.sh"
+    inline = ["mkdir -p /tmp/builders-scripts /tmp/builders-pds"]
+  }
+
+  provisioner "file" {
+    source      = "scripts/"
+    destination = "/tmp/builders-scripts"
+  }
+
+  provisioner "file" {
+    source      = "${var.pds_input_directory}/"
+    destination = "/tmp/builders-pds"
+  }
+
+  provisioner "file" {
+    source      = var.provisioning_recipe
+    destination = "/tmp/provisioning-recipe.sh"
+  }
+
+  provisioner "file" {
+    content = jsonencode({
+      version          = var.pds_version
+      repository       = var.pds_repository
+      key_fingerprint  = var.pds_key_fingerprint
+      candidate_sha256 = var.pds_candidate_sha256
+      motd_preset      = var.motd_preset
+      kubectl_channel  = var.kubectl_channel
+    })
+    destination = "/tmp/pds-settings.json"
   }
 
   provisioner "shell" {
-    execute_command = "sudo -n bash '{{ .Path }}' --image-build"
-    script          = "scripts/seal-image.sh"
+    execute_command = "sudo -n bash -e '{{ .Path }}'"
+    inline = [
+      "bash /tmp/builders-scripts/install.sh /tmp/build-config.yaml",
+      "bash /tmp/builders-scripts/install-pds.sh /tmp/pds-settings.json /tmp/builders-pds",
+      "bash /tmp/builders-scripts/run-recipe.sh /tmp/pds-settings.json /usr/share/pds/init.sh /tmp/provisioning-recipe.sh",
+      "bash /tmp/builders-scripts/seal-image.sh --image-build",
+    ]
   }
 
   post-processor "shell-local" {

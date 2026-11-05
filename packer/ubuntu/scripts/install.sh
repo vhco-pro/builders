@@ -11,3 +11,5 @@ fi
 for module in package_update_upgrade_install locale timezone keyboard; do
     cloud-init single --name "$module" --frequency always --file "$config_file"
 done
+# Finish package removals before the selected recipe may configure SSH policy.
+apt-get -y autoremove

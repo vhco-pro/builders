@@ -23,6 +23,87 @@ variable "output_raw" {
   description = "Also export a raw disk after the portable qcow2 build."
 }
 
+# -- shared PDS provisioning --
+variable "provisioning_recipe" {
+  type        = string
+  default     = "recipes/default.sh"
+  description = "Trusted Bash recipe selecting PDS functions. Native settings and sealing always run."
+  validation {
+    condition     = fileexists(var.provisioning_recipe)
+    error_message = "Select an existing readable Bash recipe before starting a build."
+  }
+}
+
+variable "pds_version" {
+  type        = string
+  default     = "0.19.0"
+  description = "Exact PDS Debian version. 0.19.0 is the last published release; the combined recipe requires the pending PDS feature release or an explicit candidate."
+  validation {
+    condition     = can(regex("^[0-9][A-Za-z0-9.+:~_-]*$", var.pds_version))
+    error_message = "Set an exact Debian package version."
+  }
+}
+
+variable "pds_input_directory" {
+  type        = string
+  default     = "pds"
+  description = "Public signing key input directory, optionally containing candidate.deb for explicit pre-release validation."
+  validation {
+    condition     = fileexists("${var.pds_input_directory}/repository-key.asc")
+    error_message = "The PDS input directory must contain repository-key.asc."
+  }
+}
+
+variable "pds_repository" {
+  type        = string
+  default     = "https://michielvha.github.io/PDS/apt/"
+  description = "Signed PDS APT repository retained for updates after deployment."
+  validation {
+    condition     = can(regex("^https://[^[:space:]]+/$", var.pds_repository))
+    error_message = "Use an HTTPS repository URL ending in a slash."
+  }
+}
+
+variable "pds_key_fingerprint" {
+  type        = string
+  default     = "37C7D029C0FE4DB0E66E5F72AFA1101D94CBF301"
+  description = "Expected primary fingerprint of the public PDS repository signing key."
+  validation {
+    condition     = can(regex("^[A-F0-9]{40}$", var.pds_key_fingerprint))
+    error_message = "Supply a full uppercase OpenPGP primary fingerprint."
+  }
+}
+
+variable "pds_candidate_sha256" {
+  type        = string
+  default     = ""
+  description = "Explicit candidate.deb SHA-256. Empty selects the signed repository; no candidate fallback is allowed."
+  validation {
+    condition     = var.pds_candidate_sha256 == "" || can(regex("^[a-f0-9]{64}$", var.pds_candidate_sha256))
+    error_message = "Supply the candidate package's lowercase SHA-256, or leave empty for the repository route."
+  }
+}
+
+variable "motd_preset" {
+  type        = string
+  default     = "vhco"
+  description = "MOTD selection exported to recipes as BUILD_MOTD_PRESET; default recipe accepts packaged PDS presets."
+  validation {
+    condition     = can(regex("^[a-z0-9][a-z0-9_-]*$", var.motd_preset))
+    error_message = "Use a PDS preset name such as vhco, stackweaver or edgeforge."
+  }
+}
+
+variable "kubectl_channel" {
+  type        = string
+  default     = "1.37"
+  description = "Kubernetes minor APT channel exported as BUILD_KUBECTL_CHANNEL. Custom recipes decide whether to use it."
+  validation {
+    condition     = can(regex("^1\\.[0-9]+$", var.kubectl_channel))
+    error_message = "Use a Kubernetes minor channel such as 1.37."
+  }
+}
+
 # -- proxmox api (proxmox-clone builder) --
 # Override connection placeholders in an untracked *.auto.pkrvars.hcl.
 # Validation also requires a nonempty token; make check supplies a dummy value.

@@ -24,3 +24,4 @@ packages:
   - build-essential
   - zsh
   - btop
+  - cron
