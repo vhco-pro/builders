@@ -1,0 +1,31 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
+  "automerge": false,
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^packer/ubuntu/variables\\.pkr\\.hcl$/"],
+      "matchStrings": ["variable \"pds_version\" \\{\\s+type\\s*=\\s*string\\s+default\\s*=\\s*\"(?<currentValue>[^\"]+)\""],
+      "depNameTemplate": "michielvha/PDS",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v?(?<version>.*)$"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^packer/ubuntu/ubuntu\\.pkr\\.hcl$/"],
+      "matchStrings": ["version\\s*=\\s*\"= (?<currentValue>[^\"]+)\"\\s+source\\s*=\\s*\"github.com/hashicorp/(?<depName>[^\"]+)\""],
+      "packageNameTemplate": "hashicorp/packer-plugin-{{depName}}",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.*)$"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^\\.github/workflows/check\\.yaml$/"],
+      "matchStrings": ["version: (?<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)"],
+      "depNameTemplate": "hashicorp/packer",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.*)$"
+    }
+  ]
+}

@@ -18,12 +18,14 @@ class ArtifactChecks(unittest.TestCase):
             files = {
                 '/etc/machine-id': '', '/etc/hostname': 'localhost\n',
                 '/etc/shadow': 'ubuntu:*:0:0:99999:7:::\n',
+                '/etc/skel/.zshrc': 'source /etc/zshrc\n',
+                '/etc/skel/.p10k.zsh': '# shared preset\n',
                 '/var/lib/builders/pds.json': json.dumps(dict(package='pds', version='1.0.0', source='candidate')),
                 '/etc/ssh/sshd_config.d/00-pds-security.conf':
                     'PasswordAuthentication no\nKbdInteractiveAuthentication no\nPubkeyAuthentication yes\nPermitRootLogin no\n',
                 '/etc/cron.d/pds-update': '0 0 * * * root /usr/local/sbin/pds-update >> /var/log/pds-update.log 2>&1\n',
             }
-            exists = list(present)
+            exists = ['/etc/update-motd.d/90-pds', *present]
             if mode == 'default':
                 exists += ['/etc/ssh/sshd_config.d/00-pds-security.conf', '/etc/cron.d/pds-update']
             files.update(changed or {})
@@ -35,7 +37,10 @@ from pathlib import Path
 fixture=json.loads(Path(os.environ['TEST_FIXTURE']).read_text())
 name=Path(sys.argv[0]).name
 if name == 'qemu-img': print('{"format":"qcow2"}')
-elif name == 'guestfish': print('true' if sys.argv[-1] in fixture['exists'] else 'false')
+elif name == 'guestfish':
+    if 'glob-expand' in sys.argv:
+        print(' '.join(p for p in fixture['exists'] if p.startswith('/etc/ssh/ssh_host_')))
+    else: print('true' if sys.argv[-1] in fixture['exists'] else 'false')
 elif name == 'virt-cat':
     if sys.argv[-1] not in fixture['files']: sys.exit(1)
     print(fixture['files'][sys.argv[-1]], end='')
@@ -58,6 +63,8 @@ elif name == 'virt-cat':
                                  ({'/etc/shadow': 'ubuntu:build-password:0:0:99999:7:::\n'}, ()),
                                  ({'/var/lib/builders/pds.json': '{"package":"pds","version":"wrong"}'}, ()),
                                  ({}, ('/root/.ssh/authorized_keys',)),
+                                 ({}, ('/etc/ssh/ssh_host_ed25519_key',)),
+                                 ({'/etc/skel/.zshrc': 'source /root/.zshrc'}, ()),
                                  ({}, ('/var/lib/cloud/seed',)),
                                  ({}, ('/etc/ssh/sshd_config.d/50-cloud-init.conf',))]:
             with self.subTest(changed=changed, present=present):
