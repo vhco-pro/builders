@@ -14,12 +14,13 @@ check-config:
 	cd packer/ubuntu && PKR_VAR_proxmox_api_token=validation-only-placeholder $(PACKER) validate .
 check-shell:
 	shellcheck -S warning packer/ubuntu/scripts/*.sh packer/ubuntu/tests/*.sh packer/ubuntu/recipes/*.sh
+	zsh -dfn packer/ubuntu/scripts/check-user-shell.zsh
 
 check-tests:
 	python3 -B -m unittest discover -s packer/ubuntu/tests -v
 
 check-image:
-	bash packer/ubuntu/scripts/check-image.sh "$(IMAGE)" "$(RECIPE)" "$(PDS_VERSION)"
+	bash packer/ubuntu/scripts/check-image.sh "$(IMAGE)" "$(RECIPE)" "$(PDS_VERSION)" "$(PDS_SOURCE)"
 
 check-instance:
 	bash packer/ubuntu/scripts/check-instance.sh "$(RECIPE)"

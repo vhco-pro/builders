@@ -17,6 +17,6 @@ jobs:
         with:
           version: 1.16.2
       - name: Install check dependencies
-        run: sudo apt-get update && sudo apt-get install -y shellcheck jq qemu-utils python3
+        run: sudo apt-get update && sudo apt-get install -y shellcheck jq qemu-utils python3 zsh
       - run: make init
       - run: make check

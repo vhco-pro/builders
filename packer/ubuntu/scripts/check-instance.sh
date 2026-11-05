@@ -11,13 +11,14 @@ login_shell=$(getent passwd "$(id -un)" | cut -d: -f7)
 [[ "$login_shell" == */zsh ]]
 sudo -n true
 [[ -s "$HOME/.p10k.zsh" && -r /usr/local/share/zi/zi.zsh ]]
+shell_check="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/check-user-shell.zsh"
+[[ -r "$shell_check" ]] || { printf '%s\n' 'Keep check-user-shell.zsh beside this check script.' >&2; exit 1; }
 # First run may download the existing Zi plugins; the second must reuse the setup.
 for startup in 1 2; do
     printf 'Verify Zsh startup %s (the first may download Zi plugins).\n' "$startup"
-    zsh -lic '(( $+functions[zi] )); (( $+functions[p10k] )); [[ -s ~/.p10k.zsh ]]'
+    zsh -lic 'source "$1" "$2"' builders-shell-check "$shell_check" "$mode"
 done
 if [[ "$mode" == default ]]; then
-    zsh -lic '[[ "$KREW_ROOT" == /usr/local/share/pds/krew ]]; alias k; whence __start_kubectl; kubectl version --client; kubectl krew list; kubectl neat --help >/dev/null; kubectl view-secret --help >/dev/null; kubectl stern --version'
     [[ ! -w /usr/local/share/pds/krew ]]
     systemctl is-enabled cron
     effective=$(sudo -n /usr/sbin/sshd -T)

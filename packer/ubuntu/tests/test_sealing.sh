@@ -25,6 +25,12 @@ for path in /home/ubuntu/.ssh/authorized_keys /root/.ssh/authorized_keys \
     printf '%s\n' 'temporary build fixture' > "$path"
 done
 printf '%s\n' 0123456789abcdef0123456789abcdef > /etc/machine-id
+for residue in /root/.config/gh/hosts.yml /root/.kube/config /root/.zsh_history \
+    /home/ubuntu/.gitconfig /home/ubuntu/.local/share/test-cache; do
+    mkdir -p "$(dirname -- "$residue")"
+    printf '%s\n' 'discard this build fixture' > "$residue"
+done
+printf '%s\n' '# public shell configuration' > /root/.profile
 
 # Docker bind-mounts /etc/hosts, preventing sed -i from renaming it. Keep the
 # sealer's expression and adapt only the write to this Docker-managed file.
@@ -53,4 +59,9 @@ for path in /home/ubuntu/.ssh/authorized_keys /root/.ssh/authorized_keys \
     test ! -e "$path"
 done
 compgen -G '/etc/ssh/ssh_host_*' >/dev/null && exit 1
+for residue in /root/.config /root/.kube /root/.zsh_history \
+    /home/ubuntu/.gitconfig /home/ubuntu/.local; do
+    test ! -e "$residue"
+done
+test "$(cat /root/.profile)" = '# public shell configuration'
 printf '%s\n' 'PASS: build password, SSH override, keys and identity removed.'

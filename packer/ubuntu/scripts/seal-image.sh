@@ -31,6 +31,11 @@ rm -f /var/lib/systemd/random-seed
 # Export the journal before truncating logs. No package operations run after policy.
 builders_check_ssh_policy /run/builders
 find /var/log -type f -exec truncate --size=0 {} \;
-rm -f /root/.bash_history /home/ubuntu/.bash_history /root/.wget-hsts
+# Build homes are workspaces. Shared tools/assets belong in system and skel paths.
+for build_home in /root /home/ubuntu; do
+    find "$build_home" -mindepth 1 -maxdepth 1 \
+        ! -name .bashrc ! -name .profile ! -name .bash_logout \
+        ! -name .zshrc ! -name .p10k.zsh -exec rm -rf -- {} +
+done
 rm -rf /tmp/* /var/tmp/*
 rm -f /run/builders/ssh-policy.json

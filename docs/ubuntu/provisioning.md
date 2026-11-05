@@ -56,6 +56,10 @@ disposable build guest. Selected calls must report failures. Native settings, pa
 checks and sealing always run. Omitting a policy call leaves any Ubuntu/vendor policy in place;
 it does not enable password login or undo a previous configuration.
 
+The sealer treats `/root` and `/home/ubuntu` as build workspaces. It keeps standard shell startup
+files and the shared PDS preset, discarding other contents, including client configuration and
+histories. Put shared tooling in system paths and future users' shell assets in `/etc/skel`.
+
 `motd_preset` defaults to `vhco`; packaged alternatives are `stackweaver` and the preserved legacy
 `edgeforge`. `kubectl_channel` defaults to `1.37`; choose a minor channel appropriate for your
 cluster. Builders exports these as `BUILD_MOTD_PRESET` and `BUILD_KUBECTL_CHANNEL`. The default

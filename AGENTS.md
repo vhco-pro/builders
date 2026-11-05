@@ -17,7 +17,7 @@ Feature documents: docs/specs/
 
 - `make init` installs the Packer plugins declared by the Ubuntu template.
 - `make check` runs formatting, Packer validation, ShellCheck and local regression tests.
-  It needs Packer, ShellCheck, Python 3, jq and qemu-img. Packer validation fetches public
+  It needs Packer, ShellCheck, Python 3, Zsh, jq and qemu-img. Packer validation fetches public
   checksum metadata but does not require Proxmox credentials.
 - Feature documents use the pinned vh-adlc format. Use the shared lifecycle and
   independent reviewer from the vh-adlc plugin; do not maintain a second local agent workflow.

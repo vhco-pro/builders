@@ -10,7 +10,8 @@ SCRIPTS = Path(__file__).resolve().parents[1] / 'scripts'
 
 
 class ArtifactChecks(unittest.TestCase):
-    def check_image(self, *, mode='default', changed=None, present=()):
+    def check_image(self, *, mode='default', changed=None, present=(), missing=(),
+                    residue=(), cache_entries=(), expected_source='candidate'):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             image = root / 'image.qcow2'
@@ -20,6 +21,8 @@ class ArtifactChecks(unittest.TestCase):
                 '/etc/shadow': 'ubuntu:*:0:0:99999:7:::\n',
                 '/etc/skel/.zshrc': 'source /etc/zshrc\n',
                 '/etc/skel/.p10k.zsh': '# shared preset\n',
+                '/root/.sudo_as_admin_successful': '',
+                '/root/.cache/motd.legal-displayed': '',
                 '/var/lib/builders/pds.json': json.dumps(dict(package='pds', version='1.0.0', source='candidate')),
                 '/etc/ssh/sshd_config.d/00-pds-security.conf':
                     'PasswordAuthentication no\nKbdInteractiveAuthentication no\nPubkeyAuthentication yes\nPermitRootLogin no\n',
@@ -29,8 +32,11 @@ class ArtifactChecks(unittest.TestCase):
             if mode == 'default':
                 exists += ['/etc/ssh/sshd_config.d/00-pds-security.conf', '/etc/cron.d/pds-update']
             files.update(changed or {})
+            for path in missing:
+                files.pop(path, None)
             fixture = root / 'fixture.json'
-            fixture.write_text(json.dumps(dict(files=files, exists=exists)))
+            fixture.write_text(json.dumps(dict(files=files, exists=exists, residue=list(residue),
+                                              cache_entries=list(cache_entries))))
             stub = '''#!/usr/bin/env python3
 import json, os, sys
 from pathlib import Path
@@ -38,7 +44,10 @@ fixture=json.loads(Path(os.environ['TEST_FIXTURE']).read_text())
 name=Path(sys.argv[0]).name
 if name == 'qemu-img': print('{"format":"qcow2"}')
 elif name == 'guestfish':
-    if 'glob-expand' in sys.argv:
+    if 'ls' in sys.argv:
+        values = fixture['residue'] if sys.argv[-1] == '/root' else fixture['cache_entries'] if sys.argv[-1] == '/root/.cache' else []
+        print('\\n'.join(values))
+    elif 'glob-expand' in sys.argv:
         print(' '.join(p for p in fixture['exists'] if p.startswith('/etc/ssh/ssh_host_')))
     else: print('true' if sys.argv[-1] in fixture['exists'] else 'false')
 elif name == 'virt-cat':
@@ -49,7 +58,7 @@ elif name == 'virt-cat':
                 command = root / name
                 command.write_text(stub)
                 command.chmod(0o755)
-            return subprocess.run(['bash', str(SCRIPTS / 'check-image.sh'), str(image), mode, '1.0.0'],
+            return subprocess.run(['bash', str(SCRIPTS / 'check-image.sh'), str(image), mode, '1.0.0', expected_source],
                                   text=True, capture_output=True, timeout=15,
                                   env={**os.environ, 'PATH': f'{root}:/usr/bin:/bin', 'TEST_FIXTURE': str(fixture)})
 
@@ -57,6 +66,9 @@ elif name == 'virt-cat':
         for mode in ('default', 'custom'):
             result = self.check_image(mode=mode)
             self.assertEqual(result.returncode, 0, result.stderr)
+        result = self.check_image(residue=('.bashrc', '.profile', '.sudo_as_admin_successful', '.cache'),
+                                  cache_entries=('motd.legal-displayed',))
+        self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_machine_identity_build_access_and_wrong_package_fail(self):
         for changed, present in [({'/etc/machine-id': 'baked-id'}, ()),
@@ -74,6 +86,20 @@ elif name == 'virt-cat':
         self.assertNotEqual(self.check_image(changed={
             '/etc/ssh/sshd_config.d/00-pds-security.conf': 'PasswordAuthentication yes\n'}).returncode, 0)
         self.assertNotEqual(self.check_image(mode='custom', present=('/etc/cron.d/pds-update',)).returncode, 0)
+
+    def test_missing_identity_evidence_and_unexpected_home_state_fail(self):
+        self.assertNotEqual(self.check_image(missing=('/etc/machine-id',)).returncode, 0)
+        for residue in ('.config', '.kube', '.krew', '.zsh_history', '.gitconfig'):
+            with self.subTest(residue=residue):
+                self.assertNotEqual(self.check_image(residue=(residue,)).returncode, 0)
+        self.assertNotEqual(self.check_image(residue=('.cache',), cache_entries=('private-build-cache',)).returncode, 0)
+
+    def test_candidate_cannot_pass_a_signed_release_check(self):
+        self.assertNotEqual(self.check_image(expected_source='signed-repository').returncode, 0)
+        metadata = json.dumps(dict(package='pds', version='1.0.0', source='signed-repository'))
+        result = self.check_image(expected_source='signed-repository', changed={
+            '/var/lib/builders/pds.json': metadata})
+        self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_fresh_instance_check_exists_and_rejects_unknown_recipe(self):
         result = subprocess.run(['bash', str(SCRIPTS / 'check-instance.sh'), 'unknown'],
