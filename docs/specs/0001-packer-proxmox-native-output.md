@@ -707,38 +707,38 @@ scope is verified and merged by the owner. Feature 0002 remains open for its wid
 ## Acceptance Criteria
 
 - [ ] AC-01: A committed `create-base-template.sh` turns the official Ubuntu cloud image into a base cloud-init template on the PVE host (qemu-guest-agent embedded), repeatably; no hand-clicking.
-      Evidence: R-24 returned not verified; this criterion is not accepted as complete.
+      Evidence: R-25 returned not verified; this criterion is not accepted as complete.
 - [ ] AC-02: `packer init .` installs both `hashicorp/proxmox` (`1.2.4`) and `hashicorp/qemu` plugins.
-      Evidence: R-24 returned not verified; this criterion is not accepted as complete.
+      Evidence: R-25 returned met from independent execution/inspection; other criteria retain their own limits.
 - [ ] AC-03: `packer build -only='proxmox-clone.ubuntu' …` clones the base and produces a **template** on the PVE node (verified via `qm config <vmid>` showing `template: 1`) with an **empty cloud-init drive** attached; no per-build `qm importdisk`/upload anywhere in the flow. The native CPU model defaults to `host` and is configurable; the template and two fresh clones use the selected default, and blank or whitespace-padded model names fail local validation.
-      Evidence: R-24 returned not verified; this criterion is not accepted as complete.
+      Evidence: R-25 returned not verified; this criterion is not accepted as complete.
 - [ ] AC-04: `packer build -only='qemu.ubuntu' …` still produces the local qcow2/raw artifact.
-      Evidence: R-24 returned not verified; this criterion is not accepted as complete.
+      Evidence: R-25 returned not verified; this criterion is not accepted as complete.
 - [ ] AC-05: Both native and portable sealed outputs contain no site-specific hostname, static IP/netplan identity or SSH host keys; two independently initialized instances of each output receive distinct machine IDs and host keys and apply their supplied identities.
-      Evidence: R-24 returned not verified; this criterion is not accepted as complete.
+      Evidence: R-25 returned not verified; this criterion is not accepted as complete.
 - [ ] AC-06: The sealed image retains no build password, authorized keys or generated SSH policy override. The default Ubuntu account may remain only locked and keyless, with its standard sudo policy. Usable deployed users, keys and site-specific identity are supplied at clone time; the default recipe's PDS SSH baseline remains effective after fresh cloud-init initialization.
-      Evidence: R-24 returned not verified; this criterion is not accepted as complete.
+      Evidence: R-25 returned not verified; this criterion is not accepted as complete.
 - [ ] AC-07: Short root and Ubuntu READMEs link canonical procedures for both output selections, PDS bootstrap, SSH/debugging and recovery; small flow diagrams use Mermaid and Proxmox is explicitly optional.
-      Evidence: R-24 returned met from independent source/link inspection; runtime acceptance remains separate.
+      Evidence: R-25 returned met from independent source/link inspection; runtime acceptance remains separate.
 - [ ] AC-08: Both builders install the exact selected PDS package, verify its identity and provenance, and fail on missing, mismatched or untrusted inputs; candidate-package testing is distinguished from a verified signed-repository release build.
-      Evidence: R-24 returned not verified; this criterion is not accepted as complete.
+      Evidence: R-25 returned not verified; this criterion is not accepted as complete.
 - [ ] AC-09: The shared provisioner applies native Ubuntu settings and the default recipe's explicit PDS function selection for Zi/Powerlevel10k, MOTD, GitHub CLI, kubectl, Krew, neat/view-secret/stern, nightly package updates and restricted SSH; reusable implementations live in the standalone PDS package, and selected-function failures stop provisioning.
-      Evidence: R-24 returned not verified; this criterion is not accepted as complete.
+      Evidence: R-25 returned not verified; this criterion is not accepted as complete.
 - [ ] AC-10: A new deployment user of a default-recipe image receives working Zsh/Powerlevel10k, the kubectl alias/completion, Krew and the neat, view-secret and stern plugins from either output, with its configured Zsh login shell and sudo policy and without inheriting build credentials or build-home paths. Zi populates the existing plugin set on first shell startup with network access; no image-prefetched plugin cache is required.
       Evidence: R-18 returned untested; this criterion is not accepted as complete.
 - [ ] AC-11: The PDS package loads non-interactively without installer/network side effects, preserves the caller's shell state and reports library failures; its supported standalone setup preserves Zi, the preset and the existing plugin set. Error-reporting assertions cover explicit non-interactive loading; interactive auto-loading is documented separately.
-      Evidence: R-24 returned not verified; this criterion is not accepted as complete.
+      Evidence: R-25 returned not verified; this criterion is not accepted as complete.
 - [ ] AC-12: Repository checks exercise package-backed provisioning, failure paths, sealed-artifact assertions and two fresh boots of each Ubuntu amd64 output; CI reports executed versus skipped checks, and native checks preserve all pre-existing guests.
-      Evidence: R-24 returned not verified; this criterion is not accepted as complete.
+      Evidence: R-25 returned not verified; this criterion is not accepted as complete.
 
 - [ ] AC-13: PDS bundles selectable VHCO, Stackweaver and preserved EdgeForge MOTD text presets; builders defaults to configurable VHCO, custom-file usage remains supported, and invalid selections leave the active MOTD and other MOTD scripts unchanged.
-      Evidence: R-24 returned not verified; this criterion is not accepted as complete.
+      Evidence: R-25 returned met from independent execution/inspection; other criteria retain their own limits.
 
 - [ ] AC-14: Both image outputs built with the default recipe retain one configured nightly midnight package-update job that runs non-interactively with an enabled scheduler and effective SSH settings that allow injected non-root public-key login while disabling password, keyboard-interactive and root login; repeated provisioning is safe and temporary Packer access is removed only after it is no longer needed.
-      Evidence: R-24 returned not verified; this criterion is not accepted as complete.
+      Evidence: R-25 returned not verified; this criterion is not accepted as complete.
 
 - [ ] AC-15: An operator can select a readable custom Bash recipe at invocation for either output without editing the default recipe or PDS; omitted PDS update/SSH policies are not applied elsewhere, missing recipes and failed calls stop the build, and generic-image cleanup still runs.
-      Evidence: R-24 returned not verified; this criterion is not accepted as complete.
+      Evidence: R-25 returned not verified; this criterion is not accepted as complete.
 
 ## Test Plan
 
@@ -850,6 +850,7 @@ None.
 | 2026-11-05 | R-22 | implementation | `0437db7561f74c41d797201f9a7d05a42be0e742` | claude-opus-5-5 | procedural | No CI-authentication code defect; two documentation nits, with runtime/release acceptance still open. |
 | 2026-11-05 | R-23 | implementation | `fcd9b0c00ea2cb3ecb76ae890e79ded24b1fa837` | claude-opus-5-5 | procedural | R-22 documentation repairs verified; no findings, with independent runtime/release acceptance still open. |
 | 2026-11-05 | R-24 | implementation | `51872a307fe0a3a7bcfa3cbc075915a7cfc8a81e` | claude-opus-5.5 | procedural | Five should-fix findings and one nit; source review completed, container execution denied and runtime acceptance remains open. |
+| 2026-11-05 | R-25 | implementation | `a55568b669e9411185c6520377ee2e8ae1fa35ea` | claude-opus-5.5 | procedural | All local/package/sealing/disk checks pass independently; two evidence should-fixes and two nits, with live criteria still unverified by reviewer. |
 
 ### R-1
 
@@ -2174,6 +2175,78 @@ SEVERITY: nit
 WHERE: Design, PDS provisioning and package identity; packer/ubuntu/scripts/install-pds.sh:48
 EVIDENCE: signed-repository-install.log shows "stable/main all Packages [849 B]". That size is consistent with an index holding a single version, but this is unverified. If the repository keeps only the latest release, `apt-get install pds=0.20.0` will fail once a newer PDS is published, so this commit's pinned build would stop being reproducible.
 PROPOSAL: Confirm and document whether the PDS APT repository keeps superseded versions. If it does not, document that pinned builds require a pin update after each release.
+
+### R-25
+
+CRITERION: AC-01 A committed `create-base-template.sh` turns the official Ubuntu cloud image into a base cloud-init template on the PVE host (qemu-guest-agent embedded), repeatably; no hand-clicking.
+VERDICT: not verified
+EVIDENCE: checks.sh builders, target a55568b. All 16 BaseTemplateSafety, BaseImagePreparationSafety and RemoteImportSafety cases passed, covering an occupied ID, a corrupt bundle, a checksum failure, a disk shrink and cleanup refusal, all with stubbed commands. I also read evidence/bootstrap-occupied-refusal.log ("VM 990220 already exists ... nothing was changed") and bootstrap-corrupt-refusal.log (a sha256sum FAILED line). Limits: the review bundle has no log of the bundle being prepared from source or imported on a new ID, and no repeat-import record. I observed no Proxmox state, and the base 990220 has been removed.
+CRITERION: AC-02 `packer init .` installs both `hashicorp/proxmox` (`1.2.4`) and `hashicorp/qemu` plugins.
+VERDICT: met
+EVIDENCE: checks.sh init, target a55568b. `make init` ran `packer init .` with exit 0, and `packer plugins installed` listed packer-plugin-proxmox_v1.2.4 and packer-plugin-qemu_v1.1.8. checks.sh builders then passed `packer validate .`, which loads both plugins. ubuntu.pkr.hcl pins "= 1.2.4" and "= 1.1.8". Limits: the plugin directory was mounted pre-populated and read-only, so init found the pinned plugins already present and I did not observe a fresh download.
+CRITERION: AC-03 `packer build -only='proxmox-clone.ubuntu' …` clones the base and produces a **template** on the PVE node (verified via `qm config <vmid>` showing `template: 1`) with an **empty cloud-init drive** attached; no per-build `qm importdisk`/upload anywhere in the flow. The native CPU model defaults to `host` and is configurable; the template and two fresh clones use the selected default, and blank or whitespace-padded model names fail local validation.
+VERDICT: not verified
+EVIDENCE: Source inspection and author traces, target a55568b. variables.pkr.hcl:148-156 defaults to host and uses a trimspace guard. native-default-final-ownership.json shows template 1, cpu host, ide0 vm-990244-cloudinit and no ciuser, cipassword or sshkeys. native-*-final-build.log has no importdisk or disk upload, only file provisioner uploads into the guest. The validate-instances controller asserts cpu host and AES/AVX on the clones. Limits: no build, template or clone was executed or observed by me, and those resources are gone. No test I ran rejects blank or padded CPU names; `make check` only validates the defaults.
+CRITERION: AC-04 `packer build -only='qemu.ubuntu' …` still produces the local qcow2/raw artifact.
+VERDICT: not verified
+EVIDENCE: checks.sh portable-default and portable-custom, target a55568b. Both mounted *-final-deployment.qcow2 disks passed read-only inspection. test_raw_export passed in checks.sh builders. Limits: I ran no QEMU build. The qcow2/raw equality and archive digests come only from the author's portable-*-final-formats.log and portable-archive-digests.json. The raw files were not mounted, and checks.sh offers no hashing mode, so I could not tie the disks to source f78ac9a myself.
+CRITERION: AC-05 Both native and portable sealed outputs contain no site-specific hostname, static IP/netplan identity or SSH host keys; two independently initialized instances of each output receive distinct machine IDs and host keys and apply their supplied identities.
+VERDICT: not verified
+EVIDENCE: checks.sh native-default, native-custom, portable-default and portable-custom, target a55568b. All four ran the repaired check-image.sh and passed. It confirmed an empty machine-id, hostname localhost, no ssh_host_* keys and no /etc/netplan/50-cloud-init.yaml, /var/lib/cloud/instance, instances or seed. So R-24 F-05 is repaired and exercised on real artifacts. test_cloud_init_network_and_instance_state_fail_offline_inspection passed. Limits: the eight boots are author traces only. The per-instance results and final-eight-instance-audit.json show 8 distinct machine, client, ed25519 host-key and hostname values. The reboot JSONs for 990242 and 990249 show changed boot IDs with the same machine ID, DHCP client ID and ed25519 fingerprint. I executed none of these, and the instances are gone.
+CRITERION: AC-06 The sealed image retains no build password, authorized keys or generated SSH policy override. The default Ubuntu account may remain only locked and keyless, with its standard sudo policy. Usable deployed users, keys and site-specific identity are supplied at clone time; the default recipe's PDS SSH baseline remains effective after fresh cloud-init initialization.
+VERDICT: not verified
+EVIDENCE: checks.sh sealing-normal, sealing-transient and the four disk modes, target a55568b. Both sealing runs reproduced "passwordauthentication yes" and then printed PASS. The transient run passed with a read-only bind-mounted /etc/machine-id, which truncate could only clear after `systemd-machine-id-setup --commit`. All four disks have an ubuntu shadow hash of '*', no authorized_keys, no 50-cloud-init.conf and allowlisted build homes. Limits: the requirement that the baseline stays effective after fresh cloud-init, and that clone-time users and keys work, rests only on author authentication-events.jsonl and instance logs. I observed no boot.
+CRITERION: AC-07 Short root and Ubuntu READMEs link canonical procedures for both output selections, PDS bootstrap, SSH/debugging and recovery; small flow diagrams use Mermaid and Proxmox is explicitly optional.
+VERDICT: met
+EVIDENCE: Inspection at target a55568b. I read readme.md, packer/readme.md, packer/ubuntu/readme.md and docs/ubuntu/*.md, including the new live-validation.md. I grepped every relative link and checked each target file and anchor heading by glob and grep (provisioning.md#supply-the-deployed-identity, #choose-a-different-recipe, proxmox.md stage 1, recovery.md#rebuild-when-the-bundle-is-also-lost, local-build.md#prerequisites, pds/readme.md#retain-reproducible-package-inputs). All resolve. Mermaid blocks are at packer/ubuntu/readme.md:35 and docs/ubuntu/image-pipeline.md:7, and all three READMEs call Proxmox optional. Limits: I did not render the diagrams or follow the procedures live.
+CRITERION: AC-08 Both builders install the exact selected PDS package, verify its identity and provenance, and fail on missing, mismatched or untrusted inputs; candidate-package testing is distinguished from a verified signed-repository release build.
+VERDICT: not verified
+EVIDENCE: checks.sh builders and the four disk modes, target a55568b. All 9 PdsProvisioning tests passed, covering wrong checksum, name and version, trust failure without fallback, exact version request and the candidate failing a signed check. On all four disks the actual dpkg status shows pds 0.20.0 "install ok installed" for architecture all. pds.list is the signed-by source, and the key fingerprint is 37C7D029C0FE4DB0E66E5F72AFA1101D94CBF301. pds.json reports signed-repository with an empty candidate_sha256. Limits: the failure-path tests intercept apt and gpg, so I saw no real rejection of an untrusted repository. I could not hash the disks or the .deb (expected d73c3c94...) to tie them to f78ac9a and the published release.
+CRITERION: AC-09 The shared provisioner applies native Ubuntu settings and the default recipe's explicit PDS function selection for Zi/Powerlevel10k, MOTD, GitHub CLI, kubectl, Krew, neat/view-secret/stern, nightly package updates and restricted SSH; reusable implementations live in the standalone PDS package, and selected-function failures stop provisioning.
+VERDICT: not verified
+EVIDENCE: checks.sh builders, pds and the disk modes, target a55568b. The default/custom selection and missing-library or failed-call tests passed, and the observer ownership tests passed. The PDS suite passed 36 tests against the installed 0.20.0 package, and the hook guard is in ssh_security.sh:36. The default disks contain 90-pds, the policy file and the midnight cron line. Limits: my disk checks did not inspect gh, kubectl, Krew or the plugin binaries. Real provisioning of these tools is only in the author build and instance logs.
+CRITERION: AC-10 A new deployment user of a default-recipe image receives working Zsh/Powerlevel10k, the kubectl alias/completion, Krew and the neat, view-secret and stern plugins from either output, with its configured Zsh login shell and sudo policy and without inheriting build credentials or build-home paths. Zi populates the existing plugin set on first shell startup with network access; no image-prefetched plugin cache is required.
+VERDICT: not verified
+EVIDENCE: checks.sh builders (UserShell tests) and the disk modes, target a55568b. The disks show no /root or /home/ubuntu paths in skel configuration and allowlisted build homes. Limits: fresh-user Zsh, kubectl, Krew and plugin execution and the Zi first-login downloads appear only in author traces, such as instance-990249-plugin-revisions.log with five plugin commits and standalone-per-user-krew.log. I observed none of it.
+CRITERION: AC-11 The PDS package loads non-interactively without installer/network side effects, preserves the caller's shell state and reports library failures; its supported standalone setup preserves Zi, the preset and the existing plugin set. Error-reporting assertions cover explicit non-interactive loading; interactive auto-loading is documented separately.
+VERDICT: not verified
+EVIDENCE: checks.sh pds, target a55568b, with the e25f603 snapshot tests against the mounted 0.20.0 .deb in a network-none container. All 36 tests passed, including strict load without installers, option preservation, missing and broken library reporting, the standalone shell and asset paths, and preset/Zi configuration. Limits: the Zi tests use a stub. The test plan's real selected-installer and new-user coverage exists only in author instance traces. I could not hash the .deb against the published digest.
+CRITERION: AC-12 Repository checks exercise package-backed provisioning, failure paths, sealed-artifact assertions and two fresh boots of each Ubuntu amd64 output; CI reports executed versus skipped checks, and native checks preserve all pre-existing guests.
+VERDICT: not verified
+EVIDENCE: checks.sh builders, target a55568b. All 47 tests, fmt, validate, ShellCheck and the zsh syntax check passed, and make printed an explicit live-test "SKIP:" line. I read the live-validation.md procedure. Limits: I observed no hosted CI at this head, and T29 is open. The fresh boots are author-only. Guest preservation evidence is limited to the protected.json preflight (six hashes) and a boolean-only final-cleanup-audit.json (F-01). Guest 104 was deleted by root@pam inside the campaign window (F-02).
+CRITERION: AC-13 PDS bundles selectable VHCO, Stackweaver and preserved EdgeForge MOTD text presets; builders defaults to configurable VHCO, custom-file usage remains supported, and invalid selections leave the active MOTD and other MOTD scripts unchanged.
+VERDICT: met
+EVIDENCE: checks.sh pds and all four disk modes, target a55568b. In the installed 0.20.0 package, all four MotdPresets tests passed: packaging and switching of all presets, EdgeForge preserving the legacy banner, custom-file and standalone resolution, and invalid selection preserving the active banner and scripts. test_motd_manages_only_its_own_script also passed. On every disk, /etc/pds/motd-banner equals the bundled vhco.txt and all three preset files exist. variables.pkr.hcl defaults the configurable preset to vhco, and the export test passed. Limits: banner comparison is text equality only, and I did not hash the .deb or the disks.
+CRITERION: AC-14 Both image outputs built with the default recipe retain one configured nightly midnight package-update job that runs non-interactively with an enabled scheduler and effective SSH settings that allow injected non-root public-key login while disabling password, keyboard-interactive and root login; repeated provisioning is safe and temporary Packer access is removed only after it is no longer needed.
+VERDICT: not verified
+EVIDENCE: checks.sh pds, builders, sealing modes and the default disks, target a55568b. The PDS baseline tests passed: repeatable update job, modified conffile, bounded lock contention, SSH precedence and rollback, and no reload. The default disks carry the exact `0 0 * * * root /usr/local/sbin/pds-update` line and the four policy lines. The repaired observer passed both regressions. Limits: cron execution (EXACT_CRON_COMMAND and UPDATE_EXIT_CODE=0 logs), the 34 authentication events and the build-side PID and journal evidence (three identical MainPID blocks with "-- No entries --") are author traces. The fixture did not capture sshd -T while the permissive file and the baseline were both present (F-03).
+CRITERION: AC-15 An operator can select a readable custom Bash recipe at invocation for either output without editing the default recipe or PDS; omitted PDS update/SSH policies are not applied elsewhere, missing recipes and failed calls stop the build, and generic-image cleanup still runs.
+VERDICT: not verified
+EVIDENCE: checks.sh builders, native-custom and portable-custom, target a55568b. The recipe selection, missing-recipe and failed-call tests passed. An unchanged-policy custom recipe passes the digest guard. Both custom disks lack 00-pds-security.conf and the pds-update job, carry the VHCO banner and pass all cleanup and identity assertions. Limits: the custom builds and four custom boots are author traces only. The Packer guard checks existence, not readability (F-04).
+FINDING: F-01
+KIND: judgement
+SEVERITY: should-fix
+WHERE: docs/validation/0001-2026-11-05.md Rebuilt validation (lines 275-279); evidence final-cleanup-audit.json; AC-12
+EVIDENCE: cleanup-sanitized.txt:190-192 writes protected_configs_and_states_unchanged=True and the other fields as constants after the asserts pass. final-cleanup-audit.json and final-eight-instance-audit.json retain only booleans and counts. No post-run guest config hashes, power states or storage hashes are retained, so I cannot compare preflight digests with the audit evidence myself. Authentication and cron now have command-level traces, but guest preservation, the part R-24 F-02 also covered, does not.
+PROPOSAL: Retain the observed post-cleanup per-guest config SHA256, status and normalized storage hashes beside protected.json and protected-storage.json, and derive the summary from those values.
+FINDING: F-02
+KIND: factual
+SEVERITY: should-fix
+WHERE: docs/validation/0001-2026-11-05.md:184-190 and :211-212; AC-12
+EVIDENCE: historical-guest104-delete.json records qmdestroy 104 by root@pam at 06:51:23-24 UTC. The record says that principal "does not identify the person or process". It does not disclose that this task's own controllers authenticate to the API as root@pam (cleanup-sanitized.txt:88). So the task record cannot exclude a task operation in the 04:57 to 07:50 window, which R-24 F-03 asked to confirm. The current run's audit only covers its own six-guest snapshot.
+PROPOSAL: State that the task controllers used the same root@pam principal, so this record neither identifies nor excludes a task operation. Keep AC-12's guest-preservation claim scoped to each run's own snapshot, and name no actor.
+FINDING: F-03
+KIND: factual
+SEVERITY: nit
+WHERE: docs/ubuntu/live-validation.md:139; evidence validate-instances-sanitized.txt:258-268, 358-366; validation record :268-270
+EVIDENCE: The procedure says to keep 00-pds-security.conf in place with the permissive file and check sshd -T first. The controller writes the permissive file and moves the policy aside in the same step. The baseline-wins condition is only shown through the later authentication refusals, and sshd -T is captured only after the fixture is restored and the guest rebooted. Persistence compares only the ed25519 fingerprint. "Result=success" with ActiveState inactive does not show that systemd-machine-id-commit actually ran, though the record calls it "a successful machine-ID commit-service result".
+PROPOSAL: Capture sshd -T with both files present before moving the policy, compare all host-key types, and describe the commit-service observation as "not failed".
+FINDING: F-04
+KIND: factual
+SEVERITY: nit
+WHERE: packer/ubuntu/variables.pkr.hcl:31-34; Test Plan AC-15
+EVIDENCE: The validation is `fileexists(var.provisioning_recipe)` with the message "Select an existing readable Bash recipe". The test plan requires rejecting an unreadable recipe before building. An existing but unreadable file passes validation, and the build only fails later at the file upload or at run-recipe.sh:7 inside the guest.
+PROPOSAL: Either add a readability check (for example `can(file(...))`) or reword the message and test plan to match existence-only validation plus the in-guest failure.
 
 ## Sources
 
