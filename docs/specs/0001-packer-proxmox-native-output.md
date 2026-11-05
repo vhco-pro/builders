@@ -828,6 +828,7 @@ None.
 | 2026-11-05 | R-19 | implementation | `e5cf7b370078437d3fef3a65d659a3cf44081bc0` | claude-opus-5-5 | procedural | R-18 repairs verified; two nits, with runtime/release proof still incomplete. |
 | 2026-11-05 | R-20 | implementation | `8b56679c7f424332e7c908c4c1262738ea33743f` | claude-opus-5-5 | procedural | No source findings; Docker execution denied, live/release criteria remain unverified by reviewer. |
 | 2026-11-05 | R-21 | implementation | `d9282b4051a9613bd2569d4c38859073865321a8` | claude-opus-5-5 | procedural | No CI-repair code defect; two documentation nits, with live/release proof still incomplete. |
+| 2026-11-05 | R-22 | implementation | `0437db7561f74c41d797201f9a7d05a42be0e742` | claude-opus-5-5 | procedural | No CI-authentication code defect; two documentation nits, with runtime/release acceptance still open. |
 
 ### R-1
 
@@ -1928,6 +1929,82 @@ SEVERITY: nit
 WHERE: Review Log and Sources sections of docs/specs/0001-packer-proxmox-native-output.md
 EVIDENCE: `git show d9282b4:docs/specs/0001-packer-proxmox-native-output.md | grep -n "^## \|^### R-"` puts `## Sources` at line 1625, between `### R-17` (1607) and `### R-18` (1644). The R-18, R-19 and R-20 subsections therefore sit under Sources, not Review Log. conventions/feature-documents.md says Sources is optional and goes last.
 PROPOSAL: Move the R-18 to R-20 subsections, and any later ones, above `## Sources` so that they belong to the Review Log and Sources stays last.
+
+### R-22
+
+CRITERION: AC-01 A committed `create-base-template.sh` turns the official Ubuntu cloud image into a base cloud-init template on the PVE host (qemu-guest-agent embedded), repeatably; no hand-clicking.
+VERDICT: not verified
+EVIDENCE: Bash was denied in this review, so I ran no git command, test, binary or container. I read .git/refs/heads/feat/0001-packer-proxmox-native: it holds 0437db7561f74c41d797201f9a7d05a42be0e742. I read the PDS ref feat/image-provisioning-pds: it holds 92cd5581a595d000f2213a63f51df4ee52f086e6. The builders .git/logs/HEAD lines 39 to 40 show that 0437db7 was committed directly on eca48c2. I could not diff the two commits. That the base-template scripts are unchanged is the dispatcher's statement, not something I observed. No bootstrap, import, repeat import or occupied-ID refusal ran. The pass in docs/validation/0001-2026-11-05.md was observed by the implementer.
+
+CRITERION: AC-02 `packer init .` installs both `hashicorp/proxmox` (`1.2.4`) and `hashicorp/qemu` plugins.
+VERDICT: not verified
+EVIDENCE: I read Makefile:6-7: `init` runs `cd packer/ubuntu && $(PACKER) init .`. I read .github/workflows/check.yaml:21-23: `make init` now has `PACKER_GITHUB_API_TOKEN: ${{ github.token }}`. Lines 6 to 15 of /tmp/builders-recipe-20261105/builders-plugin-rate-limit-ci.log show the earlier hosted run failing on the proxmox plugin with a 403 rate limit. The same log shows qemu v1.1.8 installed and make exiting with code 2. I did not run packer init, and no hosted run after the repair was observed.
+
+CRITERION: AC-03 `packer build -only='proxmox-clone.ubuntu' …` clones the base and produces a **template** on the PVE node (verified via `qm config <vmid>` showing `template: 1`) with an **empty cloud-init drive** attached; no per-build `qm importdisk`/upload anywhere in the flow. The native CPU model defaults to `host` and is configurable; the template and two fresh clones use the selected default, and blank or whitespace-padded model names fail local validation.
+VERDICT: not verified
+EVIDENCE: No native build, `qm config` check, clone or CPU validation was run or observed. The validation summary's matrix (lines 56 to 61) reports native builds, inspections and two fresh instances per recipe as passed. Those results come from the implementer. This is a composite criterion and no part was executed here.
+
+CRITERION: AC-04 `packer build -only='qemu.ubuntu' …` still produces the local qcow2/raw artifact.
+VERDICT: not verified
+EVIDENCE: No portable build, raw export or format comparison was run. The summary rows "Passed; formats compare equal" for both portable recipes come from the implementer.
+
+CRITERION: AC-05 Both native and portable sealed outputs contain no site-specific hostname, static IP/netplan identity or SSH host keys; two independently initialized instances of each output receive distinct machine IDs and host keys and apply their supplied identities.
+VERDICT: not verified
+EVIDENCE: No sealed disk was inspected and no instance was booted. Validation summary lines 76 to 78 report distinct machine IDs, host keys, DHCP identities and hostnames across eight instances. That evidence comes from the implementer.
+
+CRITERION: AC-06 The sealed image retains no build password, authorized keys or generated SSH policy override. The default Ubuntu account may remain only locked and keyless, with its standard sudo policy. Usable deployed users, keys and site-specific identity are supplied at clone time; the default recipe's PDS SSH baseline remains effective after fresh cloud-init initialization.
+VERDICT: not verified
+EVIDENCE: tests/test_sealing.sh, the unit fixtures and check-image.sh did not run. No sealed output was inspected and no fresh instance was observed. Summary lines 24 to 25 and 78 to 79 report sealing and authentication passes. Those are implementer claims.
+
+CRITERION: AC-07 Short root and Ubuntu READMEs link canonical procedures for both output selections, PDS bootstrap, SSH/debugging and recovery; small flow diagrams use Mermaid and Proxmox is explicitly optional.
+VERDICT: met
+EVIDENCE: I read readme.md and grepped the links in readme.md and packer/ubuntu/readme.md. I used Glob to check that every relative target exists in the working tree at 0437db7: docs/ubuntu/local-build.md, provisioning.md, proxmox.md, image-pipeline.md, ssh-and-debugging.md and recovery.md, plus docs/development.md, docs/specs/README.md, packer/ubuntu/readme.md, proxmox.auto.pkrvars.hcl.example, recipes/default.sh, armbian-build-framework/ and LICENSE. The anchors #prerequisites and #choose-a-different-recipe match local-build.md:6 and provisioning.md:43. Mermaid blocks are at packer/ubuntu/readme.md:35 and docs/ubuntu/image-pipeline.md:7. readme.md:3 says "optional native Proxmox template path" and readme.md:19 says "This path needs no Proxmox server or credentials". Limitations: this was inspection of the working tree, and its cleanliness comes from the gitStatus snapshot, not a status command I ran. I did not render the diagrams or follow the guides. See F-02.
+
+CRITERION: AC-08 Both builders install the exact selected PDS package, verify its identity and provenance, and fail on missing, mismatched or untrusted inputs; candidate-package testing is distinguished from a verified signed-repository release build.
+VERDICT: not verified
+EVIDENCE: No package was hashed or extracted, and no built output's dpkg metadata, provenance or APT sources were inspected. Validation summary lines 9 to 14 and 102 to 105 label 744343e1... as a candidate test package and say the signed release route is still open. Those statements come from the implementer.
+
+CRITERION: AC-09 The shared provisioner applies native Ubuntu settings and the default recipe's explicit PDS function selection for Zi/Powerlevel10k, MOTD, GitHub CLI, kubectl, Krew, neat/view-secret/stern, nightly package updates and restricted SSH; reusable implementations live in the standalone PDS package, and selected-function failures stop provisioning.
+VERDICT: not verified
+EVIDENCE: Neither the builders nor the PDS suites ran, and no real provisioning or injected failure was observed. That provisioners and recipes are unchanged since R-21 is the dispatcher's statement. I could not diff to confirm it.
+
+CRITERION: AC-10 A new deployment user of a default-recipe image receives working Zsh/Powerlevel10k, the kubectl alias/completion, Krew and the neat, view-secret and stern plugins from either output, with its configured Zsh login shell and sudo policy and without inheriting build credentials or build-home paths. Zi populates the existing plugin set on first shell startup with network access; no image-prefetched plugin cache is required.
+VERDICT: not verified
+EVIDENCE: No fresh instance was booted, and no Zi download, completion or Krew plugin run was observed. Summary line 76 reports that all eight instances passed the fresh-user shell and tool checks. That claim comes from the implementer.
+
+CRITERION: AC-11 The PDS package loads non-interactively without installer/network side effects, preserves the caller's shell state and reports library failures; its supported standalone setup preserves Zi, the preset and the existing plugin set. Error-reporting assertions cover explicit non-interactive loading; interactive auto-loading is documented separately.
+VERDICT: not verified
+EVIDENCE: The PDS package suite did not run. Summary lines 26 to 33 report 25 installed-package tests plus 2 target tests, 27 in total, and a passing hosted PDS run at 92cd558. The implementer reported these, and I did not observe them.
+
+CRITERION: AC-12 Repository checks exercise package-backed provisioning, failure paths, sealed-artifact assertions and two fresh boots of each Ubuntu amd64 output; CI reports executed versus skipped checks, and native checks preserve all pre-existing guests.
+VERDICT: not verified
+EVIDENCE: I read the workflow. check.yaml:2-7 uses the `pull_request` and main `push` triggers, not `pull_request_target`, with global `permissions: contents: read`. Line 15 sets `persist-credentials: false`. Lines 21 to 23 pass `github.token` only in the `make init` step env. Lines 13 and 16 pin the actions to full SHAs. Makefile:7 shows that step only runs `packer init`, so the token is not visible to `make check` or any plugin run in later steps. Fork PRs get a read-only token whatever the workflow requests. The token expires with the job, and a same-repository PR author who can edit the Makefile already has repository access, so I found no permission, exposure or trigger defect. The retained CI log shows the earlier hosted run stopping at init, before any check. The Makefile:10 SKIP line reports skipped checks, but I did not run `make check`, Actionlint or the scope assertion. No hosted run after the repair, fresh boot or guest-preservation audit was observed. See F-01.
+
+CRITERION: AC-13 PDS bundles selectable VHCO, Stackweaver and preserved EdgeForge MOTD text presets; builders defaults to configurable VHCO, custom-file usage remains supported, and invalid selections leave the active MOTD and other MOTD scripts unchanged.
+VERDICT: not verified
+EVIDENCE: test_motd_presets did not run, and no banner was checked in either output. Summary line 80 reports that the custom outputs kept their MOTD setup. That is an implementer claim.
+
+CRITERION: AC-14 Both image outputs built with the default recipe retain one configured nightly midnight package-update job that runs non-interactively with an enabled scheduler and effective SSH settings that allow injected non-root public-key login while disabling password, keyboard-interactive and root login; repeated provisioning is safe and temporary Packer access is removed only after it is no longer needed.
+VERDICT: not verified
+EVIDENCE: No scheduler state, cron-environment run, journal interval or authentication control was observed. Summary lines 69 to 72 and 78 to 80 report that both default outputs passed. That claim comes from the implementer.
+
+CRITERION: AC-15 An operator can select a readable custom Bash recipe at invocation for either output without editing the default recipe or PDS; omitted PDS update/SSH policies are not applied elsewhere, missing recipes and failed calls stop the build, and generic-image cleanup still runs.
+VERDICT: not verified
+EVIDENCE: The unit tests and Packer validation did not run, and no custom build or instance was observed. Summary lines 59, 61 and 80 to 81 report that custom native and portable builds passed with no PDS SSH policy or update job. Those are implementer claims.
+
+FINDING: F-01
+KIND: factual
+SEVERITY: nit
+WHERE: Tasks T19/T21 in docs/specs/0001-packer-proxmox-native-output.md; docs/validation/0001-2026-11-05.md Local checks
+EVIDENCE: A Grep for PACKER_GITHUB_API_TOKEN and for rate limit across the tree matches only .github/workflows/check.yaml:23. Validation summary line 45 says "hosted CI results are reported separately", but that refers to the PDS check jobs. No document records the builders hosted run that failed at `make init` (403 rate limit, which exists only in /tmp/builders-recipe-20261105/builders-plugin-rate-limit-ci.log), the 0437db7 repair, or a hosted builders run after it.
+PROPOSAL: Add one line to the T19 follow-up or the validation summary that names the hosted failure, the step-scoped github.token repair at 0437db7 and the result of the next hosted builders run, or say that it has not run yet.
+
+FINDING: F-02
+KIND: factual
+SEVERITY: nit
+WHERE: readme.md Build an Ubuntu image
+EVIDENCE: readme.md:8 ends with "then run:", but lines 10 and 11 are a separate PDS-release paragraph, and the command block only starts at line 13.
+PROPOSAL: Move the PDS-release paragraph above the "then run:" sentence or below the code block, so the colon leads straight into the commands.
 
 ## Sources
 

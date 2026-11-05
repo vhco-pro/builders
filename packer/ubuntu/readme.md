@@ -10,10 +10,10 @@ that fits the target machine.
 
 ## Build
 
-With the [local prerequisites](../../docs/ubuntu/local-build.md#prerequisites) installed, start from the repository root:
-
 This branch needs the pending PDS feature release or an explicit candidate package; see the
 [recipe guide](../../docs/ubuntu/provisioning.md) before running a build.
+
+With the [local prerequisites](../../docs/ubuntu/local-build.md#prerequisites) installed, start from the repository root:
 
 ```bash
 cd packer/ubuntu
