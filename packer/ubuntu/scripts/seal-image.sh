@@ -19,6 +19,9 @@ rm -f /etc/ssh/ssh_host_*
 # Clone-time cloud-init supplies the deployed machine's access and addressing.
 cloud-init clean --logs --seed --configs ssh_config network
 
+# Early boot can leave a read-only transient ID bind-mounted over this file.
+# Commit/unmount it through systemd before clearing the persistent image ID.
+systemd-machine-id-setup --commit
 truncate -s 0 /etc/machine-id
 rm -f /var/lib/dbus/machine-id
 ln -s /etc/machine-id /var/lib/dbus/machine-id

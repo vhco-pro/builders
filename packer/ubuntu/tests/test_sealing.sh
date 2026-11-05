@@ -24,7 +24,13 @@ for path in /home/ubuntu/.ssh/authorized_keys /root/.ssh/authorized_keys \
     mkdir -p "$(dirname -- "$path")"
     printf '%s\n' 'temporary build fixture' > "$path"
 done
-printf '%s\n' 0123456789abcdef0123456789abcdef > /etc/machine-id
+# A transient-ID regression bind-mounts this value read-only from tmpfs.
+# Leave that mount intact so the real sealer must commit/unmount it first.
+if mountpoint -q /etc/machine-id; then
+    test "$(cat /etc/machine-id)" = 0123456789abcdef0123456789abcdef
+else
+    printf '%s\n' 0123456789abcdef0123456789abcdef > /etc/machine-id
+fi
 for residue in /root/.config/gh/hosts.yml /root/.kube/config /root/.zsh_history \
     /home/ubuntu/.gitconfig /home/ubuntu/.local/share/test-cache; do
     mkdir -p "$(dirname -- "$residue")"
