@@ -1731,9 +1731,6 @@ PROPOSAL: Add an expected-source argument (or a make variable) and require it to
 
 ### R-19
 
-Dependency target: PDS `e756e93f52e4ade5113f2a96e89858d7670a371d`.
-
-```text
 CRITERION: AC-01 A committed `create-base-template.sh` turns the official Ubuntu cloud image into a base cloud-init template on the PVE host (qemu-guest-agent embedded), repeatably; no hand-clicking.
 VERDICT: not verified
 EVIDENCE: Confirmed that both worktrees are clean (`git status --porcelain` printed nothing) and that HEAD is e5cf7b370078437d3fef3a65d659a3cf44081bc0 in builders and e756e93f52e4ade5113f2a96e89858d7670a371d in PDS. Ran `python3 -B -m unittest discover -s packer/ubuntu/tests -v` in builders-pr4-review-tools:local with `--network none`, source mounted read-only and Packer plus plugins mounted read-only. All 43 tests passed, including the 15 test_base_template safety cases (occupied ID refused, corrupt or partial bundle rejected, ID rechecked before VM creation). Proxmox access was not permitted, so no bootstrap, import or repeat import was run. Retained logs were not counted.
@@ -1807,4 +1804,3 @@ SEVERITY: nit
 WHERE: PDS .github/workflows/build-apt-package.yml (dependency at e756e93)
 EVIDENCE: The push trigger lists `.github/workflows/build-apt-package.yml` (line 14), but the pull_request trigger (lines 17-26) does not. The deleted image-provisioning-check.yaml included itself in its PR paths. A PR that changes only this workflow, such as its permissions or checkout settings, therefore runs no package checks before merge, and the first execution happens on the main push that can publish. R-18 F-03 itself is repaired: the default is `contents: read`, write scopes exist only on release (contents: write) and deploy-apt-repo (pages and id-token), every checkout sets persist-credentials: false, and version calculation is always dry-run.
 PROPOSAL: Add `.github/workflows/build-apt-package.yml` to the pull_request paths.
-```
