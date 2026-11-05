@@ -23,7 +23,8 @@ class UserShell(unittest.TestCase):
             log = home / 'calls'
             setup = '''zi() { :; }; p10k() { :; }
 alias k=kubectl
-__start_kubectl() { :; }
+_kubectl() { :; }
+typeset -A _comps=(kubectl _kubectl k _kubectl)
 export KREW_ROOT=/usr/local/share/pds/krew
 kubectl() {
   print -r -- "$*" >> "$TEST_CALLS"
@@ -44,7 +45,8 @@ kubectl() {
 
     def test_earlier_missing_capabilities_fail_the_whole_check(self):
         for change in ('unfunction zi', 'unfunction p10k', 'unalias k',
-                       'unfunction __start_kubectl', 'export KREW_ROOT=/wrong',
+                       'unfunction _kubectl', 'unset \'_comps[k]\'',
+                       '_comps[k]=wrong', 'export KREW_ROOT=/wrong',
                        'rm "$HOME/.p10k.zsh"'):
             with self.subTest(change=change):
                 result, _ = self.probe(change=change)

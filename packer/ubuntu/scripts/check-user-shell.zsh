@@ -10,7 +10,8 @@ case "$1" in default|custom) ;; *) exit 2 ;; esac
 if [[ "$1" == default ]]; then
     [[ "$KREW_ROOT" == /usr/local/share/pds/krew ]]
     alias k
-    whence __start_kubectl
+    [[ -n ${_comps[kubectl]:-} && ${_comps[k]:-} == ${_comps[kubectl]} ]]
+    whence "${_comps[k]}"
     kubectl version --client
     kubectl krew list
     kubectl neat --help >/dev/null
