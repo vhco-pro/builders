@@ -1,7 +1,6 @@
 # Inspect an exported image
 
-Choose guestfish for filesystem inspection without booting. Raw-image mounting and chroot remain
-available for the manual workflows from the original README.
+Choose guestfish for filesystem inspection without booting. Use raw-image mounting and chroot when a repair needs direct access to the image userspace.
 
 ## Read a qcow2 or raw disk with guestfish
 

@@ -38,7 +38,7 @@ packer build -only='qemu.ubuntu' -var 'qemu_accelerator=tcg' .
 `variables.pkrvars.hcl` file, add `-var-file=variables.pkrvars.hcl`; editing it alone does not change
 a build. CLI `-var` flags provide individual overrides.
 
-For the optional shell shortcut from the original README, define it while working in `packer/ubuntu`:
+For an optional shell shortcut, define it while working in `packer/ubuntu`:
 
 ```bash
 alias pb='packer build -only=qemu.ubuntu -var-file=variables.pkrvars.hcl .'

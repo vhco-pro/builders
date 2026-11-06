@@ -1,7 +1,6 @@
 # Set up a Packer build host
 
-These Ubuntu/Debian commands retain the host setup from the original Packer README. Install build
-tools on the workstation or a disposable build VM. Proxmox itself only needs its native import tools.
+Install these Ubuntu/Debian build tools on the workstation or a disposable build VM. Proxmox itself only needs its native import tools.
 
 ## Install Packer
 
@@ -52,7 +51,7 @@ The [local build guide](local-build.md) also shows software emulation with TCG.
 
 ## Optional libvirt desktop tools
 
-These tools from the old setup are useful for managing local guests through libvirt or Virt Manager.
+These tools manage local guests through libvirt or Virt Manager.
 The Packer QEMU builder invokes QEMU directly and does not need a libvirt daemon.
 
 ```bash
@@ -72,6 +71,4 @@ cd packer/ubuntu
 packer init .
 ```
 
-Run initialization and builds as the same user so they share the plugin cache. The template selects
-the plugin versions; this replaces the old manual `sudo packer plugins install github.com/hashicorp/qemu`
-step. Continue with the [local build](local-build.md) or [optional Proxmox build](proxmox.md).
+Run initialization and builds as the same user so they share the plugin cache. The template selects the plugin versions; a separate manual plugin installation is unnecessary. Continue with the [local build](local-build.md) or [optional Proxmox build](proxmox.md).
