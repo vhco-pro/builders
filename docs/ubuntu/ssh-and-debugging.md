@@ -62,6 +62,15 @@ The double colon specifies a TCP port in TigerVNC. A Linux viewer can be install
 `tigervnc-viewer` on Ubuntu/Debian or `tigervnc` on Fedora. On Windows, use a compatible VNC viewer
 such as MobaXterm through the same SSH tunnel.
 
+Install the viewer on the workstation that will display it:
+
+```bash
+# Ubuntu/Debian
+sudo apt-get install tigervnc-viewer
+# Fedora
+sudo dnf install tigervnc
+```
+
 ## Connect to a deployed VM
 
 The sealed image has no shared password or baked-in personal key. Configure a user and its public
@@ -81,19 +90,9 @@ to watch boot and cloud-init output; the build account has no console password.
 
 ## Inspect an exported disk without booting it
 
-Use libguestfs to read a qcow2 filesystem without mounting the image file as a raw partition.
-Fedora 43 provides `guestfish` in
-[`libguestfs`](https://packages.fedoraproject.org/pkgs/libguestfs/libguestfs/fedora-43.html);
-Ubuntu/Debian include it in `libguestfs-tools`. Start from the repository root:
-
-```bash
-image=packer/ubuntu/output-noble-amd64/ubuntu-noble-amd64.qcow2
-guestfish --ro -a "$image" -i cat /etc/hostname
-```
-
-Use the [recovery guide's libguestfs prerequisites](recovery.md#rebuild-when-the-bundle-is-also-lost)
-when a host kernel is unreadable or the appliance cannot start. Keep debug logs local until any
-credentials and private connection details have been removed before sharing.
+The [image inspection guide](image-inspection.md) covers read-only guestfish access, raw partition
+mounts and chroot. Use [manual boot](manual-boot.md) when you need to run the exported image instead.
+Keep debug logs local until credentials and private connection details have been removed before sharing.
 
 ## References
 

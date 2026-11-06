@@ -24,6 +24,30 @@ cloud-init.
 
 ## Context
 
+### Owner summary
+
+Build Ubuntu images once, then supply the real users, keys and hostname when deploying them.
+Choose a portable qcow2/raw disk or an optional native Proxmox template; both use the same PDS package,
+recipe and image cleanup.
+
+The default recipe installs the shared shell and admin tools, VHCO MOTD, midnight package updates
+and key-only SSH with root login disabled. A custom Bash recipe can select different PDS functions
+and omit those policy calls. PDS remains usable for ordinary installations.
+
+Base preparation runs on a build machine, with a documented replacement-machine recovery path.
+Proxmox needs no Packer or libguestfs installation. Native guests default to the host CPU model,
+which is configurable. This suits the current single-node lab; migration to a different CPU needs
+an explicit compatibility choice.
+
+The controlled matrix at `9f4db43` passed four builds, eight fresh deployments and two reboot checks
+total. All six pre-existing guests were preserved and all disposable resources removed. Later
+image-input changes are comments with identical parsed YAML. Linked guides cover host setup, manual
+QEMU boots, SSH/VNC, raw mounts, chroot and the historical ARM commands. Merge requires current review
+and CI.
+
+This feature is the image foundation. RKE2, an edgectl redesign and the cross-repository Homelab
+coordinator each need their own design. The homelab articles remain draft.
+
 R-28 returns all 15 criteria met and no findings, but its AC-14 evidence says "2 reboots per default
 instance". The retained records show **two reboot operations total**, one on native default 990342
 and one on portable default 990349. Each JSON records one before/after boot-ID pair. R-28 is preserved

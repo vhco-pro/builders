@@ -5,6 +5,8 @@ base template, Terraform or Stackweaver.
 
 ## Prerequisites
 
+The [build host setup guide](build-host-setup.md) contains the installation commands.
+
 Install [Packer](https://developer.hashicorp.com/packer/install), `qemu-system-x86_64` (or the target architecture's equivalent), `qemu-img`,
 and `genisoimage` or `xorriso`. The default amd64 build uses KVM; use TCG for software emulation when
 KVM is unavailable. The guest needs access to Ubuntu/PDS package repositories and the selected
@@ -36,6 +38,12 @@ packer build -only='qemu.ubuntu' -var 'qemu_accelerator=tcg' .
 `variables.pkrvars.hcl` file, add `-var-file=variables.pkrvars.hcl`; editing it alone does not change
 a build. CLI `-var` flags provide individual overrides.
 
+For the optional shell shortcut from the original README, define it while working in `packer/ubuntu`:
+
+```bash
+alias pb='packer build -only=qemu.ubuntu -var-file=variables.pkrvars.hcl .'
+```
+
 Artifacts land in `output-<codename>-<arch>/`. Raw export performs an actual `qemu-img convert`; it
 refuses to overwrite an existing raw artifact. Packer also refuses an existing output directory.
 The QEMU seed uses a temporary `ubuntu`/`ubuntu` login on the isolated build guest; cleanup discards
@@ -51,3 +59,4 @@ The exported image has no usable build login. Supply a user and SSH key at deplo
 connecting. The [SSH and debugging guide](ssh-and-debugging.md) covers temporary build access, VNC
 tunnels and read-only inspection. [Image preparation](image-pipeline.md) explains the shared configuration
 and sealing steps.
+The [manual boot guide](manual-boot.md) provides a complete QEMU command and a deployment seed.
