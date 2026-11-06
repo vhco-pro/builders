@@ -1,20 +1,27 @@
-# Specs
+# Feature documents
 
-Every non-trivial change to this repo starts here. We design the behaviour, review it, then implement.
-This is the deliberate replacement for the old copy-paste workflow.
+The canonical lifecycle is vh-adlc at the revision pinned in [AGENTS.md](../../AGENTS.md).
+Each feature has one document containing its scope, criteria, test plan, tasks, questions and reviews.
+Use the shared vh-adlc reviewer; do not replace independent review with the implementing agent's assessment.
 
-## Workflow
+Feature #1 has an accepted spec and is in progress. Its dated validation and independent review
+records distinguish observed tests from acceptance. Feature #2 retains its wider draft scope; #3 is
+superseded by #1. Earlier implementation and review history remains in the documents and Git history.
 
-1. **Draft** — copy [`_template.md`](_template.md) to `NNNN-short-slug.md` (next free number) and fill it in.
-2. **Review** — discuss and refine until the design is agreed. Status stays `draft`.
-3. **Implement** — build it. Flip status to `in-progress`, then `done` when the acceptance criteria pass.
-4. **Document** — a done spec is a self-contained record of *what* changed and *why*, readable on its own.
-   (The writing agent turns these into blog posts, so keep the narrative honest and complete.)
-
-## Index
-
-| # | Spec | Status |
+| Issue | Feature | Status |
 | --- | --- | --- |
-| 0001 | [Packer: Proxmox-native builder with selectable output formats](0001-packer-proxmox-native-output.md) | draft |
-| 0002 | [Automated testing harness for image builds](0002-image-build-testing.md) | draft |
-| 0003 | [Move provisioning into PDS ("select and apply")](0003-pds-provisioning-migration.md) | draft |
+| #1 | [Ubuntu images and PDS bootstrap](0001-packer-proxmox-native-output.md) | in-progress |
+| #2 | [Image test harness](0002-image-build-testing.md) | draft |
+| #3 | [PDS delivery folded into #1](0003-pds-provisioning-migration.md) | superseded |
+
+Issue #3 remains open until the integrated bootstrap is verified and merged. Feature #2 keeps its
+wider multi-OS/macOS scope; the bounded Ubuntu checks belong to #1.
+
+Start with `vh-adlc find --issue <n>` or `vh-adlc find --slug <slug>`, then follow the procedure named by `vh-adlc next`. Run `knowledge` and read
+the resolved pages before editing. `lint` checks document shape; `fresh` checks review currency; a
+status change needs the corresponding `gate` result. Commit and publication restrictions in
+[AGENTS.md](../../AGENTS.md) still apply. A review of uncommitted work uses `+dirty` and cannot complete
+a feature.
+
+Use the [pinned central template](https://github.com/vhco-pro/docs/blob/0e52f51f01b84eda75a976763c42d8ec0a07b544/guides/feature-document-template.md).
+Fill it with measured facts rather than copying another feature's decisions or evidence.
