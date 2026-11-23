@@ -67,8 +67,9 @@ with open(os.environ['TEST_CALLS'], 'a') as log:
                 self.assertEqual(command[0], 'single')
                 self.assertEqual(command[command.index('--file') + 1], str(config))
 
-    def test_build_config_selects_dutch_keyboard_and_unicode_console_font(self):
+    def test_build_config_selects_english_dutch_keyboard_and_unicode_console_font(self):
         config = (SCRIPTS.parent / 'cloud-init' / 'build-config.yaml').read_text()
+        self.assertIn('locale: en_US.UTF-8\n', config)
         self.assertIn('keyboard:\n  layout: nl\n', config)
         self.assertIn('path: /etc/default/console-setup', config)
         for line in ('CODESET="Uni2"', 'FONTFACE="TerminusBold"', 'FONTSIZE="8x16"'):

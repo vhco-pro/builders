@@ -1,6 +1,6 @@
 #cloud-config
 # Locale / keyboard / timezone defaults (overridable at clone time).
-locale: nl_BE.UTF-8
+locale: en_US.UTF-8
 keyboard:
   layout: nl
 timezone: Europe/Brussels

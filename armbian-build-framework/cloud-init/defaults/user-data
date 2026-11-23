@@ -5,7 +5,7 @@ hostname: main-dev-01
 # "{{ purpose }}-{{ env }}-{{ number }}" # we use jinja2 Templating to do this, verify if this is supported, should be
 
 # Set the locale and keyboard layout
-locale: nl_BE.UTF-8
+locale: en_US.UTF-8
 keyboard:
   layout: nl
 

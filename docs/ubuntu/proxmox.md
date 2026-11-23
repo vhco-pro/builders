@@ -118,7 +118,7 @@ recovery; the image sets the TerminusBold Unicode console font so symbols render
 A guest configured with `vga: serial0` has no noVNC console and opens xterm.js directly;
 `qm set <vmid> --vga std` restores noVNC after a full stop and start.
 
-The image defaults to the Dutch QWERTY keyboard (`nl`), the `nl_BE.UTF-8` locale and the
+The image defaults to English (`en_US.UTF-8`), the Dutch QWERTY keyboard (`nl`) and the
 `Europe/Brussels` time zone. Override them per clone with cloud-init.
 
 Some Proxmox releases generate the deprecated cloud-init `user` string. cloud-init reports a
