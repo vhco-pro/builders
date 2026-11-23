@@ -10,6 +10,10 @@ mode=$1
 login_shell=$(getent passwd "$(id -un)" | cut -d: -f7)
 [[ "$login_shell" == */zsh ]]
 sudo -n true
+localectl status | grep -Eq 'X11 Layout: +nl$'
+localectl status | grep -Fq 'LANG=en_US.UTF-8'
+grep -Fxq 'FONTFACE="TerminusBold"' /etc/default/console-setup
+grep -Fxq 'CODESET="Uni2"' /etc/default/console-setup
 [[ -s "$HOME/.p10k.zsh" && -r /usr/local/share/zi/zi.zsh ]]
 shell_check="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/check-user-shell.zsh"
 [[ -r "$shell_check" ]] || { printf '%s\n' 'Keep check-user-shell.zsh beside this check script.' >&2; exit 1; }

@@ -178,6 +178,8 @@ class RemoteImportSafety(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('qm create 9000', calls)
         self.assertIn('--ide2 local-lvm:cloudinit', calls)
+        self.assertIn('--serial0 socket --vga std', calls)
+        self.assertNotIn('--vga serial0', calls)
         self.assertTrue(calls.endswith('qm template 9000\n'))
         self.assertNotIn('destroy', calls)
 
