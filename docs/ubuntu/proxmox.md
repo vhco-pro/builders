@@ -111,6 +111,10 @@ requires compatible hardware. The portable QEMU builder keeps its separate CPU c
 Check `cpu: host` in the template and each fresh clone when using the default, and verify the expected
 CPU features inside the guest. A clone's deployment configuration can select a different supported model.
 
+The base template keeps a standard VGA display and a serial socket, and clones inherit both.
+The Proxmox noVNC console shows the `tty1` login and the xterm.js console shows `ttyS0`.
+A guest configured with `vga: serial0` has no noVNC console; set `qm set <vmid> --vga std` on it.
+
 Some Proxmox releases generate the deprecated cloud-init `user` string. cloud-init reports a
 completed boot with deprecation notices as exit code 2. The readiness adapter logs those notices and
 continues only when `DEPRECATED` is the sole recoverable-error category; other errors stop the build.

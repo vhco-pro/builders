@@ -47,6 +47,8 @@ qm importdisk "$vmid" "$image_dir/base.qcow2" "$storage"
 imported_disk="$(qm config "$vmid" | sed -n 's/^unused0: //p')"
 [[ -n "$imported_disk" ]] || { printf '%s\n' 'Imported disk was not found in the new VM configuration.' >&2; exit 1; }
 qm set "$vmid" --scsi0 "$imported_disk" --ide2 "$storage:cloudinit"
-qm set "$vmid" --boot order=scsi0 --serial0 socket --vga serial0
+# Keep a VGA display for the noVNC console and a serial port for xterm.js; the cloud image
+# kernel writes to both (console=tty1 console=ttyS0). --vga serial0 would disable noVNC.
+qm set "$vmid" --boot order=scsi0 --serial0 socket --vga std
 qm set "$vmid" --ipconfig0 ip=dhcp --agent enabled=1
 qm template "$vmid"
