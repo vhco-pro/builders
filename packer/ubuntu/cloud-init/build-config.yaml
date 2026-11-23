@@ -2,8 +2,21 @@
 # Locale / keyboard / timezone defaults (overridable at clone time).
 locale: nl_BE.UTF-8
 keyboard:
-  layout: be
+  layout: nl
 timezone: Europe/Brussels
+
+# Terminus with the Uni2 code set draws box and symbol glyphs on the text console
+# (noVNC); the font ships with console-setup. xterm.js on ttyS0 needs no console font.
+write_files:
+  - path: /etc/default/console-setup
+    permissions: '0644'
+    content: |
+      ACTIVE_CONSOLES="/dev/tty[1-6]"
+      CHARMAP="UTF-8"
+      CODESET="Uni2"
+      FONTFACE="TerminusBold"
+      FONTSIZE="8x16"
+      VIDEOMODE=
 
 # Update packages on first boot.
 package_update: true

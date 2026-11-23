@@ -7,7 +7,7 @@ hostname: main-dev-01
 # Set the locale and keyboard layout
 locale: nl_BE.UTF-8
 keyboard:
-  layout: be
+  layout: nl
 
 # Timezone setup
 timezone: Europe/Brussels

@@ -112,8 +112,14 @@ Check `cpu: host` in the template and each fresh clone when using the default, a
 CPU features inside the guest. A clone's deployment configuration can select a different supported model.
 
 The base template keeps a standard VGA display and a serial socket, and clones inherit both.
-The Proxmox noVNC console shows the `tty1` login and the xterm.js console shows `ttyS0`.
-A guest configured with `vga: serial0` has no noVNC console; set `qm set <vmid> --vga std` on it.
+Use **Console > xterm.js** for day-to-day work: it opens the `ttyS0` getty as a real UTF-8
+terminal with colours and copy-paste. noVNC shows the `tty1` text console, for boot output and
+recovery; the image sets the TerminusBold Unicode console font so symbols render there too.
+A guest configured with `vga: serial0` has no noVNC console and opens xterm.js directly;
+`qm set <vmid> --vga std` restores noVNC after a full stop and start.
+
+The image defaults to the Dutch QWERTY keyboard (`nl`), the `nl_BE.UTF-8` locale and the
+`Europe/Brussels` time zone. Override them per clone with cloud-init.
 
 Some Proxmox releases generate the deprecated cloud-init `user` string. cloud-init reports a
 completed boot with deprecation notices as exit code 2. The readiness adapter logs those notices and

@@ -8,7 +8,7 @@ if [[ ! -r "$config_file" ]]; then
     exit 1
 fi
 
-for module in package_update_upgrade_install locale timezone keyboard; do
+for module in package_update_upgrade_install locale timezone keyboard write_files; do
     cloud-init single --name "$module" --frequency always --file "$config_file"
 done
 # Finish package removals before the selected recipe may configure SSH policy.
